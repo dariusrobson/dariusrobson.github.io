@@ -2,27 +2,27 @@
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
 <title type="text">Darius' Blog</title>
 <generator uri="https://github.com/mojombo/jekyll">Jekyll</generator>
-<link rel="self" type="application/atom+xml" href="http://aronbordin.com/neo-hpstr-jekyll-theme/feed.xml" />
-<link rel="alternate" type="text/html" href="http://aronbordin.com/neo-hpstr-jekyll-theme" />
-<updated>2016-06-25T08:14:59-04:00</updated>
-<id>http://aronbordin.com/neo-hpstr-jekyll-theme/</id>
+<link rel="self" type="application/atom+xml" href="http://dariusrobson.github.io/feed.xml" />
+<link rel="alternate" type="text/html" href="http://dariusrobson.github.io" />
+<updated>2016-06-25T08:21:08-04:00</updated>
+<id>http://dariusrobson.github.io/</id>
 <author>
   <name>Darius Robson</name>
-  <uri>http://aronbordin.com/neo-hpstr-jekyll-theme/</uri>
+  <uri>http://dariusrobson.github.io/</uri>
   <email>dariusrobson@gmail.com</email>
 </author>
 
 
 <entry>
   <title type="html"><![CDATA[Scala Post]]></title>
- <link rel="alternate" type="text/html" href="http://aronbordin.com/neo-hpstr-jekyll-theme/code-highlighting-post/" />
-  <id>http://aronbordin.com/neo-hpstr-jekyll-theme/code-highlighting-post</id>
+ <link rel="alternate" type="text/html" href="http://dariusrobson.github.io/code-highlighting-post/" />
+  <id>http://dariusrobson.github.io/code-highlighting-post</id>
   <updated>2016-06-25T00:00:00-00:00</updated>
   <published>2016-06-25T00:00:00-04:00</published>
   
   <author>
     <name>Darius Robson</name>
-    <uri>http://aronbordin.com/neo-hpstr-jekyll-theme</uri>
+    <uri>http://dariusrobson.github.io</uri>
     <email>dariusrobson@gmail.com</email>
   </author>
   <content type="html">
@@ -33,7 +33,7 @@
 &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 
-    &lt;p&gt;&lt;a href=&quot;http://aronbordin.com/neo-hpstr-jekyll-theme/code-highlighting-post/&quot;&gt;Scala Post&lt;/a&gt; was originally published by Darius Robson at &lt;a href=&quot;http://aronbordin.com/neo-hpstr-jekyll-theme&quot;&gt;Darius' Blog&lt;/a&gt; on June 25, 2016.&lt;/p&gt;
+    &lt;p&gt;&lt;a href=&quot;http://dariusrobson.github.io/code-highlighting-post/&quot;&gt;Scala Post&lt;/a&gt; was originally published by Darius Robson at &lt;a href=&quot;http://dariusrobson.github.io&quot;&gt;Darius' Blog&lt;/a&gt; on June 25, 2016.&lt;/p&gt;
   </content>
 </entry>
 

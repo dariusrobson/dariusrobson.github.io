@@ -8,7 +8,7 @@ logo:             images/logo.png # logo visible in the topbar
 # Your site's domain goes here (eg: //mmistakes.github.io, http://mademistakes.com, etc)
 # When testing locally leave blank or use http://localhost:4000
 
-url: http://aronbordin.com/neo-hpstr-jekyll-theme
+url: http://dariusrobson.github.io
 
 # draw your top menu here
 # each item must have a title and a url.
@@ -22,9 +22,9 @@ menu:
 # Owner/author information
 owner:
   name:           Darius Robson
-  site:           http://aronbordin.com
+  site:           http://dariusrobson.github.io
   avatar:         images/avatar.jpg
-  bio:            "Your bio goes here. It shouldn't be super long but a good two sentences or two should suffice."
+  bio:            Darius Robson
   email:          dariusrobson@gmail.com
   # Twitter nick for use in Twitter cards and follow button.
   twitter: dariusrrobson # if no twitter in this config, the twitter follow button will be removed
