@@ -78,7 +78,7 @@
         </div>
         <div id="crosshair"></div>
         <div id="instructions">
-            WASD: Move | Mouse: Look | Click: Shoot Arrow |             Collect treasures: Gold, Silver, Diamonds, Rubies, Emeralds, Dino Eggs & Amber!<br>
+            WASD: Move | Mouse: Look | Click: Shoot Arrow | Collect treasures: Gold, Silver, Diamonds, Rubies, Emeralds, Dino Eggs & Amber!<br>
             Watch out for carnivorous dinosaurs (red) - herbivores (green) are peaceful!
         </div>
     </div>
@@ -195,11 +195,11 @@
                 { name: 'rubies', color: 0xFF0000, geometry: 'gem', points: 80, rarity: 0.85 },
                 { name: 'emeralds', color: 0x00FF00, geometry: 'gem', points: 70, rarity: 0.85 },
                 { name: 'amber', color: 0xFFBF00, geometry: 'sphere', points: 20, rarity: 0.6 },
-                { name: 'eggs', color: 0xF5DEB3, geometry: 'egg', points: 150, rarity: 0.95 }
+                { name: 'eggs', color: 0xF5DEB3, geometry: 'egg', points: 150, rarity: 0.1 }  // Changed from 0.95 to 0.1 - now very common!
             ];
 
             treasureTypes.forEach(treasureType => {
-                const count = treasureType.name === 'eggs' ? 5 : (treasureType.name === 'amber' ? 15 : 10);
+                const count = treasureType.name === 'eggs' ? 20 : (treasureType.name === 'amber' ? 15 : 10);  // Increased egg count from 5 to 20
                 
                 for (let i = 0; i < count; i++) {
                     if (Math.random() < treasureType.rarity) continue; // Skip based on rarity
