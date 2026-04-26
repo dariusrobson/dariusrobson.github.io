@@ -1,0 +1,3214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dragon Hatchling — Realms of Magic</title>
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #c9a84c;
+  --gold-glow: #ffe08a;
+  --parchment: #f5e6c8;
+  --dark: #0d0a1a;
+  --ink: #1a1025;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--dark);
+  overflow: hidden;
+  font-family: 'IM Fell English', Georgia, serif;
+  touch-action: none;
+  user-select: none;
+}
+#gameCanvas { display:block; width:100vw; height:100vh; }
+
+/* ── HUD ── */
+#hud {
+  position:fixed; top:0; left:0; right:0; z-index:10;
+  background: linear-gradient(to bottom, rgba(10,6,20,0.95) 0%, transparent 100%);
+  padding:10px 14px 18px;
+  pointer-events:none;
+  border-bottom: 1px solid rgba(201,168,76,0.2);
+}
+.hud-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.stat-group { display:flex; flex-direction:column; gap:3px; min-width:110px; }
+.stat-label {
+  font-size:9px; color:var(--gold); text-transform:uppercase;
+  letter-spacing:2px; font-family:'IM Fell English',serif; font-style:italic;
+}
+.bar-track {
+  height:8px; background:rgba(255,255,255,0.08);
+  border-radius:4px; border:1px solid rgba(201,168,76,0.25);
+  overflow:hidden; position:relative;
+}
+.bar-fill { height:100%; border-radius:4px; transition:width 0.35s ease; }
+.bar-hp   { background:linear-gradient(90deg,#7b0000,#e74c3c,#ff9999); }
+.bar-xp   { background:linear-gradient(90deg,#3d0080,#9b59b6,#d7aeff); }
+.bar-food { background:linear-gradient(90deg,#1a5c00,#27ae60,#7dffaa); }
+.bar-magic{ background:linear-gradient(90deg,#005580,#2980b9,#7fdfff); }
+
+#realm-badge {
+  position:fixed; top:10px; right:14px; z-index:11;
+  background:rgba(10,6,20,0.9);
+  border:1px solid var(--gold);
+  border-radius:8px; padding:6px 12px;
+  text-align:center; pointer-events:none;
+}
+#realm-name { color:var(--gold); font-size:11px; letter-spacing:2px; text-transform:uppercase; font-style:italic; }
+#realm-icon { font-size:20px; display:block; }
+
+#gold-badge {
+  position:fixed; top:56px; right:14px; z-index:11;
+  background:rgba(10,6,20,0.85);
+  border:1px solid var(--gold);
+  border-radius:6px; padding:4px 10px;
+  color:var(--gold); font-size:13px; pointer-events:none;
+}
+#level-badge {
+  position:fixed; top:88px; right:14px; z-index:11;
+  background:rgba(80,0,120,0.8);
+  border:1px solid #9b59b6;
+  border-radius:6px; padding:4px 10px;
+  color:#d4a7ff; font-size:11px; pointer-events:none;
+  font-style:italic;
+}
+
+/* ── REALM PORTAL BAR ── */
+#realm-bar {
+  position:fixed; top:10px; left:50%; transform:translateX(-50%);
+  display:flex; gap:8px; z-index:12; pointer-events:all;
+}
+.realm-btn {
+  background:rgba(10,6,20,0.85);
+  border:1px solid rgba(201,168,76,0.4);
+  border-radius:8px; padding:5px 10px;
+  color:var(--gold); font-size:10px; cursor:pointer;
+  text-align:center; transition:all 0.2s;
+  font-family:'IM Fell English',serif; font-style:italic;
+  white-space:nowrap;
+}
+.realm-btn:hover, .realm-btn.active {
+  background:rgba(201,168,76,0.15);
+  border-color:var(--gold);
+  box-shadow:0 0 12px rgba(201,168,76,0.3);
+}
+.realm-btn .rb-icon { font-size:16px; display:block; margin-bottom:2px; }
+.realm-btn .rb-name { font-size:9px; letter-spacing:1px; }
+
+/* ── SPELL COOLDOWN ── */
+#spell-bar {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  display:flex; gap:10px; z-index:12; pointer-events:none;
+}
+.spell-slot {
+  width:46px; height:46px; border-radius:8px;
+  background:rgba(10,6,20,0.85);
+  border:2px solid rgba(201,168,76,0.4);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:20px; color:#fff; position:relative; overflow:hidden;
+}
+.spell-slot .cd-overlay {
+  position:absolute; bottom:0; left:0; right:0;
+  background:rgba(0,0,0,0.65); transition:height 0.1s linear;
+}
+.spell-slot .spell-key {
+  position:absolute; top:2px; right:3px;
+  font-size:8px; color:var(--gold); font-family:monospace;
+}
+
+/* ── D-PAD ── */
+#dpad {
+  position:fixed; bottom:16px; left:16px; z-index:15;
+  display:grid; grid-template-columns:44px 44px 44px;
+  grid-template-rows:44px 44px 44px; gap:4px;
+}
+.dp {
+  border-radius:8px; background:rgba(255,255,255,0.08);
+  border:1px solid rgba(201,168,76,0.3);
+  color:var(--gold); font-size:18px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; touch-action:none; transition:background 0.1s;
+}
+.dp:active, .dp.pressed { background:rgba(201,168,76,0.2); }
+#dp-up    { grid-column:2; grid-row:1; }
+#dp-left  { grid-column:1; grid-row:2; }
+#dp-ctr   { grid-column:2; grid-row:2; border-color:rgba(201,168,76,0.15); }
+#dp-right { grid-column:3; grid-row:2; }
+#dp-down  { grid-column:2; grid-row:3; }
+
+/* ── ACTION BUTTONS ── */
+#action-area {
+  position:fixed; bottom:16px; right:16px; z-index:15;
+  display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+}
+.act-btn {
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; touch-action:none; transition:transform 0.1s;
+  font-size:22px; border:2px solid;
+}
+.act-btn:active { transform:scale(0.9); }
+#btn-fire {
+  width:60px; height:60px;
+  background:radial-gradient(circle,#8b0000,#3d0000);
+  border-color:#e74c3c;
+  box-shadow:0 0 18px rgba(231,76,60,0.5);
+}
+#btn-spell {
+  width:50px; height:50px;
+  background:radial-gradient(circle,#4b0082,#1a003d);
+  border-color:#9b59b6;
+  box-shadow:0 0 14px rgba(155,89,182,0.5);
+}
+#btn-shop {
+  width:46px; height:46px;
+  background:radial-gradient(circle,#7a5c00,#3d2e00);
+  border-color:var(--gold);
+  box-shadow:0 0 10px rgba(201,168,76,0.4);
+}
+
+/* ── SHOP ── */
+#shop-panel {
+  position:fixed; inset:0; z-index:30;
+  background:radial-gradient(ellipse at center, rgba(15,8,30,0.97) 0%, rgba(5,3,10,0.99) 100%);
+  display:none; flex-direction:column; overflow-y:auto;
+  border:2px solid var(--gold);
+  padding:20px;
+}
+#shop-panel h2 {
+  text-align:center; color:var(--gold);
+  font-size:clamp(18px,4vw,28px); letter-spacing:4px;
+  font-style:italic; margin-bottom:4px;
+}
+#shop-panel .shop-sub { text-align:center; color:#888; font-size:11px; letter-spacing:2px; margin-bottom:16px; }
+.shop-sections { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; max-width:900px; margin:0 auto; }
+.shop-section h3 { color:var(--gold); font-size:13px; letter-spacing:2px; margin-bottom:10px; border-bottom:1px solid rgba(201,168,76,0.2); padding-bottom:6px; font-style:italic; }
+.item-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.shop-card {
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(201,168,76,0.2);
+  border-radius:10px; padding:10px; cursor:pointer;
+  transition:all 0.2s; text-align:center;
+}
+.shop-card:hover { background:rgba(201,168,76,0.08); border-color:var(--gold); }
+.shop-card .sc-icon { font-size:26px; margin-bottom:4px; }
+.shop-card .sc-name { color:#fff; font-size:11px; font-weight:bold; margin-bottom:2px; }
+.shop-card .sc-desc { color:#888; font-size:9px; margin-bottom:6px; }
+.shop-card .sc-cost { color:var(--gold); font-size:11px; font-weight:bold; }
+.sc-lv { background:#9b59b6; color:#fff; font-size:8px; border-radius:3px; padding:1px 4px; margin-left:3px; }
+.shop-actions { display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+.shop-actions button {
+  padding:10px 20px; border-radius:8px; border:1px solid;
+  cursor:pointer; font-family:'IM Fell English',serif; font-size:13px; font-style:italic;
+}
+#sh-close { background:#3d0000; color:#ffaaaa; border-color:#e74c3c; }
+#sh-heal  { background:#003d1a; color:#aaffcc; border-color:#27ae60; }
+
+/* ── MESSAGES ── */
+#msg-overlay {
+  position:fixed; inset:0; z-index:40;
+  background:rgba(5,3,10,0.85);
+  display:none; align-items:center; justify-content:center;
+}
+#msg-box {
+  background:radial-gradient(ellipse,#0d0820,#060310);
+  border:2px solid var(--gold);
+  border-radius:16px; padding:28px 36px;
+  text-align:center; max-width:380px; width:90%;
+  box-shadow:0 0 60px rgba(201,168,76,0.15);
+}
+#msg-box .msg-deco { font-size:40px; margin-bottom:10px; }
+#msg-box h2 { color:var(--gold); font-size:22px; margin-bottom:8px; font-style:italic; }
+#msg-box p  { color:#ccc; font-size:13px; margin-bottom:16px; line-height:1.6; }
+#msg-box button {
+  background:var(--gold); color:#0d0820;
+  border:none; border-radius:8px; padding:10px 28px;
+  font-size:14px; font-weight:bold; cursor:pointer;
+  font-family:'IM Fell English',serif; font-style:italic;
+}
+
+/* ── NOTIF ── */
+#notif {
+  position:fixed; top:80px; left:50%; transform:translateX(-50%);
+  background:rgba(30,0,60,0.92); color:#d4a7ff;
+  border:1px solid #9b59b6; border-radius:8px;
+  padding:8px 18px; font-size:12px; z-index:25;
+  display:none; pointer-events:none; text-align:center;
+  font-style:italic; letter-spacing:1px;
+  box-shadow:0 0 20px rgba(155,89,182,0.4);
+}
+
+/* ── BOSS HP ── */
+#boss-hud {
+  position:fixed; bottom:140px; left:50%; transform:translateX(-50%);
+  width:min(340px,90vw); z-index:12; display:none; pointer-events:none;
+}
+#boss-hud .boss-name { color:#e74c3c; font-size:12px; text-align:center; letter-spacing:2px; font-style:italic; margin-bottom:4px; }
+#boss-hud .bar-track { height:12px; }
+#boss-hp-fill { background:linear-gradient(90deg,#7b0000,#e74c3c); }
+
+/* ── CUTSCENE ── */
+#cutscene {
+  position:fixed; inset:0; z-index:50;
+  background:#0a0814;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+#cutscene.active { display:flex; }
+
+/* Letter-box bars */
+#cutscene::before, #cutscene::after {
+  content:''; position:absolute; left:0; right:0; height:12%;
+  background:#000; z-index:2;
+}
+#cutscene::before { top:0; }
+#cutscene::after  { bottom:0; }
+
+#cs-stage {
+  position:relative; width:100%; max-width:900px;
+  height:70vh; display:flex; align-items:flex-end; justify-content:center;
+  overflow:hidden;
+}
+
+/* Moon */
+#cs-moon {
+  position:absolute; top:6%; left:50%; transform:translateX(-50%);
+  width:clamp(80px,14vw,130px); height:clamp(80px,14vw,130px);
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 38%, #fffde0, #f0d060 40%, #c8a000);
+  box-shadow: 0 0 60px 20px rgba(255,220,80,0.35), 0 0 120px 40px rgba(255,200,40,0.15);
+  animation: moonPulse 3s ease-in-out infinite;
+}
+@keyframes moonPulse {
+  0%,100%{ box-shadow:0 0 60px 20px rgba(255,220,80,0.35),0 0 120px 40px rgba(255,200,40,0.15); }
+  50%    { box-shadow:0 0 80px 30px rgba(255,220,80,0.5), 0 0 160px 60px rgba(255,200,40,0.22); }
+}
+
+/* Moon craters */
+#cs-moon::before {
+  content:''; position:absolute;
+  width:22%; height:22%; border-radius:50%;
+  background:rgba(160,120,0,0.35);
+  top:22%; left:30%;
+  box-shadow: 18px 14px 0 rgba(160,120,0,0.2), -8px 28px 0 rgba(160,120,0,0.18);
+}
+
+/* Clouds drifting */
+.cs-cloud {
+  position:absolute; top:18%; border-radius:50%;
+  background:rgba(40,30,70,0.7);
+  filter:blur(8px);
+  animation: cloudDrift linear infinite;
+}
+@keyframes cloudDrift {
+  from { transform:translateX(-120%); }
+  to   { transform:translateX(120vw); }
+}
+
+/* Ground silhouette */
+#cs-ground {
+  position:absolute; bottom:0; left:0; right:0; height:28%;
+  background: linear-gradient(to top, #0d1a08, #0a1206);
+}
+/* Grass blades */
+#cs-ground::before {
+  content:''; position:absolute; top:-12px; left:0; right:0; height:20px;
+  background: repeating-linear-gradient(
+    90deg, transparent, transparent 8px,
+    #1a3a10 8px, #1a3a10 10px
+  );
+  clip-path: polygon(
+    0% 100%, 0% 60%, 1% 0%, 2% 60%, 3% 20%, 4% 60%,
+    5% 100%, 6% 55%, 7% 10%, 8% 55%, 9% 30%, 10% 55%,
+    11% 100%, 13% 50%, 15% 5%, 17% 50%, 19% 25%, 21% 50%,
+    23% 100%, 25% 45%, 27% 8%, 29% 45%, 31% 20%, 33% 45%,
+    35% 100%, 40% 40%, 45% 5%, 50% 40%, 55% 15%, 60% 40%,
+    65% 100%, 70% 45%, 75% 8%, 80% 45%, 85% 22%, 90% 45%,
+    95% 100%, 97% 48%, 99% 12%, 100% 48%, 100% 100%
+  );
+}
+
+/* Castle silhouette */
+#cs-castle {
+  position:absolute; bottom:27%; right:5%;
+  width:clamp(90px,18vw,180px); height:clamp(70px,14vw,140px);
+  background: #080c18;
+  clip-path: polygon(
+    0% 100%, 0% 60%, 8% 60%, 8% 40%, 14% 40%, 14% 0%, 20% 0%,
+    20% 40%, 26% 40%, 26% 60%, 35% 60%, 35% 45%, 40% 45%,
+    40% 60%, 60% 60%, 60% 45%, 65% 45%, 65% 60%, 74% 60%,
+    74% 40%, 80% 40%, 80% 0%, 86% 0%, 86% 40%, 92% 40%,
+    92% 60%, 100% 60%, 100% 100%
+  );
+}
+/* Castle windows */
+#cs-castle::after {
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse 5px 8px at 15% 75%, #ffdd44 0%, transparent 100%),
+    radial-gradient(ellipse 5px 8px at 85% 75%, #ffdd44 0%, transparent 100%),
+    radial-gradient(ellipse 4px 6px at 50% 70%, #ffaa22 0%, transparent 100%);
+  animation: windowFlicker 2.5s ease-in-out infinite alternate;
+}
+@keyframes windowFlicker { 0%{opacity:1} 60%{opacity:0.7} 100%{opacity:1} }
+
+/* Trees left side */
+#cs-trees {
+  position:absolute; bottom:27%; left:2%;
+  display:flex; gap:clamp(4px,1vw,12px); align-items:flex-end;
+}
+.cs-tree { display:flex; flex-direction:column; align-items:center; }
+.cs-trunk {
+  background:#1a0e00;
+  border-radius:2px;
+}
+.cs-canopy {
+  background:#0a2206;
+  clip-path:polygon(50% 0%,100% 100%,0% 100%);
+}
+
+/* ── VIKING CHARACTER ── */
+#cs-viking {
+  position:absolute; bottom:26%;
+  left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center;
+  transform-origin:bottom center;
+}
+
+/* Viking body parts — pure CSS art */
+.vik-helmet {
+  width:clamp(28px,5vw,44px); height:clamp(14px,2.5vw,22px);
+  background:#8a6a20;
+  border-radius:50% 50% 0 0;
+  position:relative; margin-bottom:-2px;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.4);
+}
+.vik-helmet::before { /* horns */
+  content:'';
+  position:absolute; top:10%; left:-28%; right:-28%; height:60%;
+  background:
+    linear-gradient(135deg,#c8a030 40%,transparent 40%) left/40% 100% no-repeat,
+    linear-gradient(225deg,#c8a030 40%,transparent 40%) right/40% 100% no-repeat;
+  border-radius:50%;
+  filter:drop-shadow(0 0 2px #000);
+}
+.vik-helmet::after { /* face guard strip */
+  content:''; position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+  width:35%; height:6px; background:#6a4a10; border-radius:1px;
+}
+.vik-head {
+  width:clamp(24px,4.2vw,38px); height:clamp(28px,5vw,44px);
+  background:#e8c89a;
+  border-radius:45% 45% 40% 40%;
+  position:relative; z-index:1;
+}
+.vik-head::before { /* beard */
+  content:''; position:absolute; bottom:-35%; left:10%; right:10%; height:50%;
+  background:#c8a060; border-radius:0 0 40% 40%;
+}
+.vik-head::after { /* eyes (2 dots) */
+  content:''; position:absolute; top:35%; left:22%; right:22%; height:15%;
+  background:
+    radial-gradient(circle,#222 50%,transparent 50%) left/30% 100% no-repeat,
+    radial-gradient(circle,#222 50%,transparent 50%) right/30% 100% no-repeat;
+}
+.vik-body {
+  width:clamp(30px,5.5vw,50px); height:clamp(34px,6vw,54px);
+  background:#3a5a8a;
+  border-radius:30% 30% 20% 20%;
+  position:relative; margin-top:2px;
+}
+.vik-body::before { /* tunic cross-lace */
+  content:''; position:absolute; top:15%; left:50%; transform:translateX(-50%);
+  width:3px; height:70%; background:#2a3a6a; border-radius:2px;
+}
+.vik-body::after { /* belt */
+  content:''; position:absolute; bottom:8%; left:5%; right:5%; height:12%;
+  background:#4a2a00; border-radius:2px;
+}
+.vik-arms {
+  position:absolute; top:0; left:0; right:0;
+  display:flex; justify-content:space-between;
+}
+.vik-arm {
+  width:clamp(10px,1.8vw,16px); height:clamp(28px,5vw,44px);
+  background:#3a5a8a; border-radius:30%;
+  position:relative;
+}
+.vik-arm.left  { transform:rotate(20deg) translateX(-4px); }
+.vik-arm.right { transform:rotate(-20deg) translateX(4px); }
+.vik-arm.right::after { /* axe */
+  content:''; position:absolute; right:-clamp(8px,1.5vw,14px); top:-30%;
+  width:clamp(8px,1.5vw,14px); height:clamp(18px,3.2vw,28px);
+  background:#888; clip-path:polygon(40% 0%,100% 20%,100% 80%,40% 100%,0% 50%);
+}
+.vik-legs {
+  display:flex; gap:3px; margin-top:2px;
+}
+.vik-leg {
+  width:clamp(12px,2.1vw,18px); height:clamp(22px,4vw,34px);
+  background:#2a1a00; border-radius:20% 20% 30% 30%;
+}
+.vik-boot {
+  width:clamp(14px,2.4vw,20px); height:clamp(8px,1.4vw,12px);
+  background:#1a0e00; border-radius:0 30% 30% 10%;
+  margin-top:1px;
+}
+
+/* Transformation states */
+#cs-viking .vik-stage { transition: all 0.4s ease; }
+
+/* Werewolf overlay that grows in */
+#cs-werewolf-overlay {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center;
+  opacity:0; transform:scale(0.6);
+  transition:opacity 0.6s ease, transform 0.6s ease;
+  pointer-events:none;
+}
+
+/* ── SUBTITLE BAR ── */
+#cs-subtitle {
+  position:absolute; bottom:0; left:0; right:0; z-index:3;
+  background:rgba(0,0,0,0.75);
+  padding:clamp(8px,2vh,16px) 20px;
+  text-align:center;
+  font-family:'IM Fell English',Georgia,serif;
+  font-style:italic;
+  font-size:clamp(13px,2.2vw,20px);
+  color:#f5e6c8;
+  letter-spacing:1px;
+  min-height:clamp(50px,8vh,80px);
+  display:flex; align-items:center; justify-content:center;
+  border-top:1px solid rgba(201,168,76,0.3);
+}
+#cs-subtitle span {
+  display:inline-block;
+  animation:subFadeIn 0.5s ease forwards;
+}
+@keyframes subFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* Shake animation for transformation */
+@keyframes csShake {
+  0%,100%{transform:translateX(-50%)}
+  20%{transform:translateX(calc(-50% - 6px))}
+  40%{transform:translateX(calc(-50% + 6px))}
+  60%{transform:translateX(calc(-50% - 4px))}
+  80%{transform:translateX(calc(-50% + 4px))}
+}
+@keyframes csGrow {
+  0%{transform:translateX(-50%) scale(1)}
+  50%{transform:translateX(-50%) scale(1.18)}
+  100%{transform:translateX(-50%) scale(1)}
+}
+/* Moon blood-red flash */
+@keyframes moonRed {
+  0%,100%{filter:none}
+  50%{filter:hue-rotate(180deg) saturate(3)}
+}
+/* Screen flash white then red */
+@keyframes csFlash {
+  0%{background:#fff;opacity:0.9}
+  40%{background:#ff0000;opacity:0.5}
+  100%{background:transparent;opacity:0}
+}
+#cs-flash-layer {
+  position:absolute; inset:0; z-index:4; pointer-events:none;
+  opacity:0;
+}
+/* Particle howl rings */
+.cs-ring {
+  position:absolute; border-radius:50%;
+  border:2px solid rgba(255,180,0,0.6);
+  animation:ringExpand 1.2s ease-out forwards;
+}
+@keyframes ringExpand {
+  from{width:20px;height:20px;opacity:0.8;transform:translate(-50%,-50%)}
+  to{width:200px;height:200px;opacity:0;transform:translate(-50%,-50%)}
+}
+
+/* Skip button */
+#cs-skip {
+  position:absolute; top:15%; right:2%; z-index:5;
+  background:rgba(0,0,0,0.6); border:1px solid rgba(201,168,76,0.4);
+  color:rgba(201,168,76,0.7); padding:6px 14px; border-radius:6px;
+  cursor:pointer; font-size:12px; font-family:'IM Fell English',serif;
+  font-style:italic; letter-spacing:1px;
+}
+#cs-skip:hover { color:#c9a84c; border-color:#c9a84c; }
+
+/* ── MINIMAP ── */
+#minimap {
+  position:fixed; top:56px; left:14px; z-index:11;
+  width:80px; height:80px; border-radius:8px;
+  border:1px solid rgba(201,168,76,0.3);
+  overflow:hidden; background:rgba(5,3,10,0.7);
+}
+#mm-canvas { width:100%; height:100%; }
+
+/* ── MULTIPLAYER ── */
+#mp-select {
+  position:fixed; inset:0; z-index:60;
+  background:radial-gradient(ellipse at center,#0d0820 0%,#060310 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+}
+#mp-select h1 {
+  font-family:'IM Fell English',Georgia,serif; font-style:italic;
+  color:var(--gold); font-size:clamp(20px,5vw,40px);
+  letter-spacing:4px; text-shadow:0 0 30px rgba(201,168,76,0.4);
+  margin-bottom:4px; text-align:center;
+}
+#mp-select .mp-sub { color:#666; font-size:12px; font-style:italic; text-align:center; }
+.mp-btn-row { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+.mp-btn {
+  padding:14px 28px; border-radius:12px; cursor:pointer;
+  font-family:'IM Fell English',Georgia,serif; font-style:italic;
+  font-size:clamp(13px,2.2vw,17px); letter-spacing:2px; border:2px solid;
+  transition:all 0.2s; text-align:center; min-width:160px;
+}
+.mp-btn:hover { transform:translateY(-3px); }
+#btn-solo  { background:linear-gradient(135deg,#1a0a30,#2d1050); color:#d4a7ff; border-color:#9b59b6; }
+#btn-coop  { background:linear-gradient(135deg,#1a0800,#3d1a00); color:var(--gold); border-color:var(--gold); }
+.mp-key-hint {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(201,168,76,0.2);
+  border-radius:10px; padding:12px 20px; text-align:center; max-width:480px; width:90%;
+}
+.mp-key-hint h3 { color:var(--gold); font-size:11px; letter-spacing:2px; margin-bottom:10px; font-style:italic; }
+.mp-key-row { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
+.mp-player-keys { text-align:center; }
+.pk-label { color:#9b59b6; font-size:10px; letter-spacing:1px; margin-bottom:5px; }
+.pk-label.p2c { color:#2980b9; }
+.mp-key {
+  display:inline-block; background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.18); border-radius:4px;
+  padding:2px 7px; font-size:10px; color:#ccc; font-family:monospace; margin:2px;
+}
+#split-divider {
+  position:fixed; top:0; bottom:0; left:50%; width:3px; margin-left:-1px;
+  background:linear-gradient(to bottom,transparent,var(--gold) 20%,var(--gold) 80%,transparent);
+  z-index:12; display:none; pointer-events:none;
+}
+.split-label {
+  position:fixed; top:50%; z-index:13; transform:translateY(-50%);
+  background:rgba(0,0,0,0.8); border:1px solid var(--gold);
+  border-radius:6px; padding:3px 10px;
+  color:var(--gold); font-size:9px; letter-spacing:2px; font-style:italic;
+  pointer-events:none; display:none; writing-mode:vertical-rl;
+}
+#label-p1 { left:6px; }
+#label-p2 { right:6px; }
+#hud-p2 {
+  position:fixed; bottom:0; left:0; right:0; z-index:10;
+  background:linear-gradient(to top,rgba(10,6,20,0.95) 0%,transparent 100%);
+  padding:8px 14px 10px; pointer-events:none;
+  border-top:1px solid rgba(41,128,185,0.3); display:none;
+}
+#hud-p2 .stat-label { color:#7fdfff; }
+#gold-p2  { position:fixed; bottom:52px; right:14px; z-index:11; display:none;
+  background:rgba(10,6,20,0.85); border:1px solid #2980b9; border-radius:6px;
+  padding:3px 10px; color:#7fdfff; font-size:11px; pointer-events:none; }
+#level-p2 { position:fixed; bottom:80px; right:14px; z-index:11; display:none;
+  background:rgba(10,6,20,0.85); border:1px solid #2980b9; border-radius:6px;
+  padding:3px 10px; color:#7fdfff; font-size:11px; pointer-events:none; }
+#action-p2 { position:fixed; top:52px; right:14px; z-index:15; display:none; flex-direction:column; gap:6px; }
+.act-btn-p2 { width:42px; height:42px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; cursor:pointer; touch-action:none; font-size:17px;
+  border:2px solid; transition:transform 0.1s; }
+.act-btn-p2:active { transform:scale(0.9); }
+#p2-fire  { background:radial-gradient(circle,#8b0000,#3d0000); border-color:#e74c3c; }
+#p2-spell { background:radial-gradient(circle,#00334d,#001a26); border-color:#2980b9; }
+#coop-banner {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  z-index:13; pointer-events:none; display:none;
+  background:rgba(0,0,0,0.75); border:1px solid rgba(201,168,76,0.3);
+  border-radius:8px; padding:4px 12px;
+  color:var(--gold); font-size:10px; letter-spacing:2px; font-style:italic;
+}
+
+/* ── REALM TRANSITION ── */
+#realm-flash {
+  position:fixed; inset:0; z-index:35;
+  background:#c9a84c;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s;
+}
+
+/* ── FLOATING SPELL TEXT ── */
+.float-text {
+  position:fixed; z-index:20;
+  color:var(--gold); font-size:14px; font-style:italic;
+  pointer-events:none; animation:floatUp 1.2s ease-out forwards;
+}
+@keyframes floatUp {
+  0%   { transform:translateY(0); opacity:1; }
+  100% { transform:translateY(-60px); opacity:0; }
+}
+
+@media(max-width:480px){
+  .dp { width:38px; height:38px; font-size:15px; }
+  #dpad { grid-template-columns:38px 38px 38px; grid-template-rows:38px 38px 38px; }
+  #btn-fire { width:52px; height:52px; font-size:20px; }
+  #btn-spell { width:44px; height:44px; font-size:18px; }
+  .realm-btn { padding:4px 7px; }
+  .rb-name { display:none; }
+}
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-row">
+    <div class="stat-group">
+      <div class="stat-label">⚡ Vitality</div>
+      <div class="bar-track"><div class="bar-fill bar-hp" id="hp-bar" style="width:100%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">✨ Experience</div>
+      <div class="bar-track"><div class="bar-fill bar-xp" id="xp-bar" style="width:0%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">🌿 Hunger</div>
+      <div class="bar-track"><div class="bar-fill bar-food" id="food-bar" style="width:100%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">🔮 Magic</div>
+      <div class="bar-track"><div class="bar-fill bar-magic" id="magic-bar" style="width:100%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Realm portal bar -->
+<div id="realm-bar">
+  <div class="realm-btn active" data-realm="0" onclick="changeRealm(0)">
+    <span class="rb-icon">🌿</span><span class="rb-name">Forbidden Forest</span>
+  </div>
+  <div class="realm-btn" data-realm="1" onclick="changeRealm(1)">
+    <span class="rb-icon">🏰</span><span class="rb-name">Hogwarts</span>
+  </div>
+  <div class="realm-btn" data-realm="2" onclick="changeRealm(2)">
+    <span class="rb-icon">🕳️</span><span class="rb-name">Chamber of Secrets</span>
+  </div>
+  <div class="realm-btn" data-realm="3" onclick="changeRealm(3)">
+    <span class="rb-icon">💀</span><span class="rb-name">Dark Realm</span>
+  </div>
+</div>
+
+<div id="realm-badge">
+  <span id="realm-icon">🌿</span>
+  <div id="realm-name">Forbidden Forest</div>
+</div>
+<div id="gold-badge">🪙 <span id="gold-val">0</span></div>
+<div id="level-badge">LVL <span id="lv-val">1</span> — <span id="dragon-title">Hatchling</span></div>
+
+<!-- Minimap -->
+<div id="minimap"><canvas id="mm-canvas" width="80" height="80"></canvas></div>
+
+<!-- Dpad -->
+<div id="dpad">
+  <div class="dp" id="dp-up">▲</div>
+  <div class="dp" id="dp-left">◀</div>
+  <div class="dp" id="dp-ctr">⬤</div>
+  <div class="dp" id="dp-right">▶</div>
+  <div class="dp" id="dp-down">▼</div>
+</div>
+
+<!-- Action area -->
+<div id="action-area">
+  <div class="act-btn" id="btn-fire" title="Fire Breath">🔥</div>
+  <div class="act-btn" id="btn-spell" title="Magic Spell">🔮</div>
+  <div class="act-btn" id="btn-shop" title="Shop">⚗️</div>
+</div>
+
+<!-- Boss HP -->
+<div id="boss-hud">
+  <div class="boss-name" id="boss-name-label">BOSS</div>
+  <div class="bar-track">
+    <div class="bar-fill" id="boss-hp-fill" style="width:100%;background:linear-gradient(90deg,#7b0000,#e74c3c)"></div>
+  </div>
+</div>
+
+<!-- Shop -->
+<div id="shop-panel">
+  <h2>⚗️ Ollivander's Dragon Emporium</h2>
+  <div class="shop-sub">Purchase upgrades with magical gold</div>
+  <div class="shop-sections" id="shop-sections"></div>
+  <div class="shop-actions">
+    <button id="sh-heal">❤️ Heal &amp; Restore (30g)</button>
+    <button id="sh-close">✕ Close Shop</button>
+  </div>
+</div>
+
+<!-- Messages -->
+<div id="msg-overlay">
+  <div id="msg-box">
+    <div class="msg-deco" id="msg-deco">🐉</div>
+    <h2 id="msg-title">Welcome</h2>
+    <p id="msg-body">...</p>
+    <button id="msg-ok">Onward!</button>
+  </div>
+</div>
+
+<div id="notif"></div>
+<div id="realm-flash"></div>
+
+<!-- ══ MULTIPLAYER MODE SELECT ══ -->
+<div id="mp-select">
+  <div style="font-size:48px">🐉</div>
+  <h1>Dragon Hatchling<br>Realms of Magic</h1>
+  <p class="mp-sub">Choose your adventure</p>
+  <div class="mp-btn-row">
+    <button class="mp-btn" id="btn-solo">🐲 Solo Quest</button>
+    <button class="mp-btn" id="btn-coop">🐉🐉 Local Co-op</button>
+  </div>
+  <div class="mp-key-hint" id="coop-hint" style="display:none">
+    <h3>⚔️ LOCAL CO-OP — SPLIT SCREEN</h3>
+    <div class="mp-key-row">
+      <div class="mp-player-keys">
+        <div class="pk-label">🟣 PLAYER 1</div>
+        <div><span class="mp-key">W</span><span class="mp-key">A</span><span class="mp-key">S</span><span class="mp-key">D</span> Move</div>
+        <div><span class="mp-key">Space</span> Fire &nbsp; <span class="mp-key">Q</span> Spell</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,0.1)"></div>
+      <div class="mp-player-keys">
+        <div class="pk-label p2c">🔵 PLAYER 2</div>
+        <div><span class="mp-key">↑</span><span class="mp-key">←</span><span class="mp-key">↓</span><span class="mp-key">→</span> Move</div>
+        <div><span class="mp-key">Enter</span> Fire &nbsp; <span class="mp-key">/</span> Spell</div>
+      </div>
+    </div>
+  </div>
+  <button class="mp-btn" id="btn-start-coop" style="display:none;background:linear-gradient(135deg,#0a2200,#1a4400);color:#7dffaa;border-color:#27ae60">
+    ⚔️ Begin Co-op Adventure!
+  </button>
+</div>
+
+<!-- Split screen divider & labels -->
+<div id="split-divider"></div>
+<div class="split-label" id="label-p1">P1</div>
+<div class="split-label" id="label-p2">P2</div>
+
+<!-- P2 HUD -->
+<div id="hud-p2">
+  <div class="hud-row">
+    <div class="stat-group">
+      <div class="stat-label">⚡ P2 Vitality</div>
+      <div class="bar-track"><div class="bar-fill bar-hp" id="hp-bar-p2" style="width:100%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">✨ P2 XP</div>
+      <div class="bar-track"><div class="bar-fill bar-xp" id="xp-bar-p2" style="width:0%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">🌿 P2 Hunger</div>
+      <div class="bar-track"><div class="bar-fill bar-food" id="food-bar-p2" style="width:100%"></div></div>
+    </div>
+    <div class="stat-group">
+      <div class="stat-label">🔮 P2 Magic</div>
+      <div class="bar-track"><div class="bar-fill bar-magic" id="magic-bar-p2" style="width:100%"></div></div>
+    </div>
+  </div>
+</div>
+<div id="gold-p2">🪙 <span id="gold-val-p2">0</span></div>
+<div id="level-p2">P2 LVL <span id="lv-val-p2">1</span></div>
+
+<!-- P2 action buttons -->
+<div id="action-p2">
+  <div class="act-btn-p2" id="p2-fire">🔥</div>
+  <div class="act-btn-p2" id="p2-spell">🔮</div>
+</div>
+
+<div id="coop-banner">🐉 CO-OP MODE</div>
+<div id="cutscene">
+  <button id="cs-skip">Skip ▶</button>
+
+  <div id="cs-stage">
+    <!-- Moon -->
+    <div id="cs-moon"></div>
+
+    <!-- Drifting clouds -->
+    <div class="cs-cloud" style="width:180px;height:55px;top:12%;animation-duration:18s;animation-delay:-4s;opacity:0.6"></div>
+    <div class="cs-cloud" style="width:120px;height:40px;top:22%;animation-duration:24s;animation-delay:-11s;opacity:0.4"></div>
+    <div class="cs-cloud" style="width:220px;height:60px;top:8%;animation-duration:30s;animation-delay:-20s;opacity:0.5"></div>
+
+    <!-- Castle silhouette -->
+    <div id="cs-castle"></div>
+
+    <!-- Trees -->
+    <div id="cs-trees">
+      <div class="cs-tree"><div class="cs-canopy" style="width:38px;height:55px"></div><div class="cs-trunk" style="width:8px;height:22px"></div></div>
+      <div class="cs-tree"><div class="cs-canopy" style="width:28px;height:42px"></div><div class="cs-trunk" style="width:6px;height:16px"></div></div>
+      <div class="cs-tree"><div class="cs-canopy" style="width:44px;height:65px"></div><div class="cs-trunk" style="width:10px;height:26px"></div></div>
+      <div class="cs-tree"><div class="cs-canopy" style="width:32px;height:48px"></div><div class="cs-trunk" style="width:7px;height:18px"></div></div>
+    </div>
+
+    <!-- Ground -->
+    <div id="cs-ground"></div>
+
+    <!-- Flash layer -->
+    <div id="cs-flash-layer"></div>
+
+    <!-- Viking character -->
+    <div id="cs-viking">
+      <!-- Viking (visible at start) -->
+      <div id="cs-vik-inner">
+        <div class="vik-helmet"></div>
+        <div class="vik-head"></div>
+        <div class="vik-body" style="position:relative">
+          <div class="vik-arms">
+            <div class="vik-arm left"></div>
+            <div class="vik-arm right"></div>
+          </div>
+        </div>
+        <div class="vik-legs">
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <div class="vik-leg"></div><div class="vik-boot"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <div class="vik-leg"></div><div class="vik-boot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subtitle -->
+  <div id="cs-subtitle"><span id="cs-text">A lone Viking wanders the Hogwarts grounds at dusk...</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ════════════════════════════════════════
+//  REALMS DEFINITION
+// ════════════════════════════════════════
+const REALMS = [
+  {
+    name: 'Forbidden Forest',
+    icon: '🌿',
+    sky: 0x0a1a0e,
+    fog: [0x0a1a0e, 0.022],
+    ground: 0x0f2a0a,
+    gridColor: 0x071a05,
+    ambient: [0x223355, 0.5],
+    sun: [0xaaffaa, 0.6],
+    plants: ['fern','herb','mushroom'],
+    bossName: 'Aragog\'s Heir',
+    bossColor: 0x1a0a00,
+    bossType: 'spider',
+    bgParticles: 'fireflies',
+  },
+  {
+    name: 'Hogwarts Grounds',
+    icon: '🏰',
+    sky: 0x0a0d2e,
+    fog: [0x0a0d2e, 0.018],
+    ground: 0x1a1a3a,
+    gridColor: 0x0d0d25,
+    ambient: [0x2233aa, 0.5],
+    sun: [0xffeebb, 0.8],
+    plants: ['enchanted_plant','magic_flower','cauldron_plant'],
+    bossName: 'Basilisk Guardian',
+    bossColor: 0x1a2e00,
+    bossType: 'serpent',
+    bgParticles: 'stars',
+  },
+  {
+    name: 'Chamber of Secrets',
+    icon: '🕳️',
+    sky: 0x050510,
+    fog: [0x050510, 0.03],
+    ground: 0x0a0a1a,
+    gridColor: 0x070708,
+    ambient: [0x001133, 0.4],
+    sun: [0x00ffaa, 0.4],
+    plants: ['dark_herb','glowing_crystal','bone_flower'],
+    bossName: 'The Basilisk',
+    bossColor: 0x002200,
+    bossType: 'basilisk',
+    bgParticles: 'embers',
+  },
+  {
+    name: 'Dark Realm',
+    icon: '💀',
+    sky: 0x080005,
+    fog: [0x080005, 0.025],
+    ground: 0x1a0010,
+    gridColor: 0x0d0008,
+    ambient: [0x330022, 0.4],
+    sun: [0xff2200, 0.6],
+    plants: ['shadow_herb','dark_crystal','cursed_flower'],
+    bossName: 'Voldemort\'s Wraith',
+    bossColor: 0x0d0020,
+    bossType: 'wraith',
+    bgParticles: 'smoke',
+  }
+];
+
+// ════════════════════════════════════════
+//  GAME STATE
+// ════════════════════════════════════════
+const G = {
+  hp:100, maxHp:100, xp:0, xpNeeded:100, level:1,
+  gold:0, hunger:100, magic:100,
+  upgrades:{ teeth:0, wings:0, tail:0, scales:0 },
+  currentRealm:0, frameCount:0, gameOver:false, cutscenePlaying:false,
+  bossActive:false, bossHp:0, bossMaxHp:0, bossPhase:0,
+  keys:{}, score:0,
+  fireCd:0, spellCd:0,
+  move:{ up:false, down:false, left:false, right:false },
+  dragonPos:{ x:0, z:0, angle:Math.PI, targetAngle:Math.PI },
+};
+
+const TITLES = ['Hatchling','Whelp','Drake','Wyrm','Elder Drake','Great Wyrm','Ancient','Mythic'];
+
+// ════════════════════════════════════════
+//  THREE.JS INIT
+// ════════════════════════════════════════
+const canvas = document.getElementById('gameCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 400);
+camera.position.set(0,12,20);
+
+const clock = new THREE.Clock();
+
+function onResize(){
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ── LIGHTS ──
+const ambientLight = new THREE.AmbientLight(0x223355, 0.5);
+scene.add(ambientLight);
+
+const sunLight = new THREE.DirectionalLight(0xffeebb, 0.8);
+sunLight.position.set(30,50,20);
+sunLight.castShadow = true;
+sunLight.shadow.camera.left = -100; sunLight.shadow.camera.right = 100;
+sunLight.shadow.camera.top  =  100; sunLight.shadow.camera.bottom = -100;
+sunLight.shadow.camera.far  = 300;
+sunLight.shadow.mapSize.set(1024,1024);
+scene.add(sunLight);
+
+const dragonGlow = new THREE.PointLight(0x44ff88, 1.5, 16);
+scene.add(dragonGlow);
+
+// ── GROUND ──
+const groundGeo = new THREE.PlaneGeometry(240,240,60,60);
+const groundMat = new THREE.MeshLambertMaterial({ color:0x0f2a0a });
+const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+groundMesh.rotation.x = -Math.PI/2;
+groundMesh.receiveShadow = true;
+scene.add(groundMesh);
+
+const gridHelper = new THREE.GridHelper(240,60,0x071a05,0x071a05);
+scene.add(gridHelper);
+
+// ── SKY ──
+const skyGeo = new THREE.SphereGeometry(180,20,10);
+const skyMat = new THREE.MeshBasicMaterial({ color:0x0a1a0e, side:THREE.BackSide });
+const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+scene.add(skyMesh);
+
+// ── STARS ──
+function buildStars(){
+  const geo = new THREE.BufferGeometry();
+  const v = [];
+  for(let i=0;i<1200;i++){
+    const t=Math.random()*Math.PI*2, p=Math.random()*Math.PI, r=160+Math.random()*10;
+    v.push(r*Math.sin(p)*Math.cos(t), r*Math.cos(p), r*Math.sin(p)*Math.sin(t));
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(v,3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({color:0xffffff,size:0.6}));
+}
+const stars = buildStars();
+scene.add(stars);
+
+// ── ARCHITECTURAL ELEMENTS (change by realm) ──
+const realmObjects = [];
+function clearRealmObjects(){
+  realmObjects.forEach(o=>scene.remove(o));
+  realmObjects.length=0;
+}
+
+function buildRealmEnvironment(ri){
+  clearRealmObjects();
+  const r = REALMS[ri];
+
+  if(ri===0){ // Forbidden Forest — trees
+    for(let i=0;i<30;i++){
+      const g = new THREE.Group();
+      const x=(Math.random()-0.5)*200, z=(Math.random()-0.5)*200;
+      if(Math.abs(x)<15&&Math.abs(z)<15) continue;
+      const h=4+Math.random()*8;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25,0.35,h,6),
+        new THREE.MeshLambertMaterial({color:0x2c1a08})
+      );
+      trunk.position.set(x,h/2,z); trunk.castShadow=true; scene.add(trunk); realmObjects.push(trunk);
+      const canopy = new THREE.Mesh(
+        new THREE.SphereGeometry(2+Math.random()*1.5,7,5),
+        new THREE.MeshLambertMaterial({color:0x0a3a12})
+      );
+      canopy.position.set(x,h+1,z); canopy.castShadow=true; scene.add(canopy); realmObjects.push(canopy);
+    }
+  }
+
+  if(ri===1){ // Hogwarts — stone pillars & torches
+    for(let i=0;i<12;i++){
+      const angle=i/12*Math.PI*2, r=35;
+      const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5,0.6,8,8),
+        new THREE.MeshPhongMaterial({color:0x444455})
+      );
+      pillar.position.set(Math.cos(angle)*r, 4, Math.sin(angle)*r);
+      pillar.castShadow=true; scene.add(pillar); realmObjects.push(pillar);
+      const torch = new THREE.PointLight(0xff8800, 1.2, 12);
+      torch.position.set(Math.cos(angle)*r, 7, Math.sin(angle)*r);
+      scene.add(torch); realmObjects.push(torch);
+    }
+    // Castle silhouette
+    for(let i=0;i<5;i++){
+      const tower = new THREE.Mesh(
+        new THREE.CylinderGeometry(2,2.5,20+i*5,8),
+        new THREE.MeshLambertMaterial({color:0x2a2a3a})
+      );
+      tower.position.set(-60+i*25, 12, -90);
+      scene.add(tower); realmObjects.push(tower);
+      const top = new THREE.Mesh(
+        new THREE.ConeGeometry(2.2, 6, 8),
+        new THREE.MeshLambertMaterial({color:0x1a1a2a})
+      );
+      top.position.set(-60+i*25, 25+i*2.5, -90);
+      scene.add(top); realmObjects.push(top);
+    }
+  }
+
+  if(ri===2){ // Chamber — stone walls & columns
+    for(let i=0;i<16;i++){
+      const col = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6,0.7,10,8),
+        new THREE.MeshPhongMaterial({color:0x1a1a2a,shininess:20})
+      );
+      col.position.set((i%4)*18-27, 5, Math.floor(i/4)*20-30);
+      scene.add(col); realmObjects.push(col);
+    }
+    // Green glow orbs
+    for(let i=0;i<6;i++){
+      const pl = new THREE.PointLight(0x00ff88, 0.8, 20);
+      pl.position.set((Math.random()-0.5)*80, 4, (Math.random()-0.5)*80);
+      scene.add(pl); realmObjects.push(pl);
+    }
+  }
+
+  if(ri===3){ // Dark Realm — skulls & dark crystals
+    for(let i=0;i<20;i++){
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.5+Math.random()*0.8),
+        new THREE.MeshPhongMaterial({color:0x440033,emissive:0x220011,emissiveIntensity:0.5,shininess:100})
+      );
+      crystal.position.set((Math.random()-0.5)*160,(0.5+Math.random()*2),(Math.random()-0.5)*160);
+      scene.add(crystal); realmObjects.push(crystal);
+    }
+    for(let i=0;i<8;i++){
+      const pl = new THREE.PointLight(0xff0044, 0.8, 18);
+      pl.position.set((Math.random()-0.5)*100, 3+Math.random()*4, (Math.random()-0.5)*100);
+      scene.add(pl); realmObjects.push(pl);
+    }
+  }
+}
+
+// ════════════════════════════════════════
+//  DRAGON
+// ════════════════════════════════════════
+const dragonGroup = new THREE.Group();
+scene.add(dragonGroup);
+let bobT=0;
+let neckGroup = null; // child of dragonGroup; rotates independently for head facing
+
+function buildDragon(){
+  while(dragonGroup.children.length) dragonGroup.remove(dragonGroup.children[0]);
+  neckGroup = new THREE.Group();
+  const lv=G.level, sc=0.5+lv*0.1;
+  const ri=G.currentRealm;
+  const bodyColors=[0x2ecc71,0x1abc9c,0x3498db,0x9b59b6,0xe74c3c,0xf39c12,0xffffff,0xffd700];
+  const bc = bodyColors[Math.min(lv-1,7)];
+  const mat = (c,shi=60) => new THREE.MeshPhongMaterial({color:c,shininess:shi});
+
+  // ── BODY ──
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.8*sc,10,8),mat(bc));
+  body.castShadow=true; dragonGroup.add(body);
+
+  // Wings
+  const wl=G.upgrades.wings;
+  if(wl>0){
+    const wingC=[bc,0x8e44ad,0x2980b9,0xe67e22][wl];
+    [-1,1].forEach(s=>{
+      const wg=new THREE.Mesh(
+        new THREE.ConeGeometry(0.18*sc*(1+wl*0.25),(1+wl*0.3)*sc,4),
+        new THREE.MeshPhongMaterial({color:wingC,side:THREE.DoubleSide,transparent:true,opacity:0.85})
+      );
+      wg.rotation.z=s*(1.1-wl*0.1); wg.rotation.x=-0.3;
+      wg.position.set(s*(0.85+wl*0.1)*sc,0.4*sc,-0.1*sc); dragonGroup.add(wg);
+    });
+  }
+
+  // Tail
+  const taill=G.upgrades.tail;
+  const tail=new THREE.Mesh(new THREE.CylinderGeometry(0.15*sc,0.04*sc,(1.1+taill*0.4)*sc,6),mat(bc));
+  tail.rotation.x=Math.PI/2.5; tail.position.set(0,-0.2*sc,-1.0*sc); dragonGroup.add(tail);
+  if(taill>=2){
+    const sp=new THREE.Mesh(new THREE.ConeGeometry(0.14*sc,0.4*sc,4),mat(0xff4400,80));
+    sp.position.set(0,-0.35*sc,-1.7*sc); sp.rotation.x=-0.8; dragonGroup.add(sp);
+  }
+
+  // Scales glow
+  if(G.upgrades.scales>=1){
+    dragonGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.86*sc,10,8),
+      new THREE.MeshBasicMaterial({color:bc,transparent:true,opacity:0.18,wireframe:true})
+    ));
+  }
+
+  // Legs
+  [[-0.55,0,0.3],[0.55,0,0.3],[-0.55,0,-0.3],[0.55,0,-0.3]].forEach(p=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.1*sc,0.08*sc,0.5*sc,5),mat(bc));
+    leg.position.set(p[0]*sc,-0.6*sc,p[2]*sc);
+    leg.rotation.z=p[0]>0?0.3:-0.3; dragonGroup.add(leg);
+  });
+
+  // ── NECK GROUP — pivots at top of body, rotates to face movement direction ──
+  neckGroup.position.set(0, 0.55*sc, 0.35*sc);
+  dragonGroup.add(neckGroup);
+
+  const neckLen = 0.75*sc;
+
+  // Neck cylinder (base → mid)
+  const neck=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2*sc, 0.3*sc, neckLen, 8),
+    mat(bc)
+  );
+  neck.position.set(0, neckLen*0.38, neckLen*0.32);
+  neck.rotation.x = -0.48;
+  neck.castShadow=true;
+  neckGroup.add(neck);
+
+  // Mid-neck sphere (smooths joint)
+  const neckMid=new THREE.Mesh(new THREE.SphereGeometry(0.23*sc,8,6), mat(bc));
+  neckMid.position.set(0, neckLen*0.6, neckLen*0.5);
+  neckGroup.add(neckMid);
+
+  // Neck scale ridges
+  for(let i=0;i<3;i++){
+    const ridge=new THREE.Mesh(new THREE.ConeGeometry(0.07*sc,0.16*sc,4),
+      new THREE.MeshPhongMaterial({color:0x111111}));
+    ridge.position.set(0, neckLen*(0.18+i*0.22), neckLen*(0.15+i*0.18));
+    ridge.rotation.x=0.45; neckGroup.add(ridge);
+  }
+
+  // Head (at tip of neck)
+  const hY=neckLen*0.78, hZ=neckLen*0.66;
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.55*sc,10,8),mat(bc));
+  head.position.set(0,hY,hZ); head.castShadow=true; neckGroup.add(head);
+
+  // Snout
+  const snout=new THREE.Mesh(new THREE.ConeGeometry(0.22*sc,0.45*sc,6),mat(bc));
+  snout.rotation.x=Math.PI/2;
+  snout.position.set(0,hY-0.1*sc,hZ+0.42*sc); neckGroup.add(snout);
+
+  // Eyes
+  const eyeColors=[0xff6600,0x00ffff,0x00ff88,0xff00ff,0xff0000,0xffd700,0xffffff,0xffaa00];
+  const ec=eyeColors[Math.min(ri,3)];
+  const eyeM=mat(ec,100); eyeM.emissive=new THREE.Color(ec); eyeM.emissiveIntensity=1.2;
+  [-1,1].forEach(s=>{
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.1*sc,6,6),eyeM);
+    e.position.set(0.26*s*sc,hY+0.15*sc,hZ+0.25*sc); neckGroup.add(e);
+  });
+
+  // Nostrils
+  [-1,1].forEach(s=>{
+    const n=new THREE.Mesh(new THREE.CircleGeometry(0.06*sc,5),
+      new THREE.MeshBasicMaterial({color:0xff2200}));
+    n.position.set(0.1*s*sc,hY-0.08*sc,hZ+0.56*sc); neckGroup.add(n);
+  });
+
+  // Teeth
+  const tl=G.upgrades.teeth;
+  for(let i=0;i<tl+1;i++){
+    const t=new THREE.Mesh(new THREE.ConeGeometry(0.07*sc,0.2*sc,4),mat(0xffffee,120));
+    t.position.set((-0.2+i*0.15)*sc,hY-0.18*sc,hZ+0.5*sc); neckGroup.add(t);
+  }
+
+  // Horns
+  [-1,1].forEach(s=>{
+    const h=new THREE.Mesh(new THREE.ConeGeometry(0.08*sc,0.4*sc,4),mat(0x222222));
+    h.position.set(0.2*s*sc,hY+0.5*sc,hZ+0.05*sc);
+    h.rotation.z=s*0.4; neckGroup.add(h);
+  });
+}
+
+// ════════════════════════════════════════
+//  PLANTS
+// ════════════════════════════════════════
+const PLANT_DEFS = {
+  fern:           { gold:3,  xp:6,  hunger:12, icon:'🌿', color:0x27ae60 },
+  herb:           { gold:5,  xp:10, hunger:10, icon:'🌱', color:0x1abc9c },
+  mushroom:       { gold:8,  xp:14, hunger:8,  icon:'🍄', color:0xa04000 },
+  enchanted_plant:{ gold:10, xp:18, hunger:12, magic:10, icon:'✨', color:0x8e44ad },
+  magic_flower:   { gold:12, xp:20, hunger:8,  magic:15, icon:'💐', color:0x9b59b6 },
+  cauldron_plant: { gold:15, xp:25, hunger:5,  magic:20, icon:'⚗️', color:0x3498db },
+  dark_herb:      { gold:18, xp:30, hunger:6,  magic:8,  icon:'🖤', color:0x222222 },
+  glowing_crystal:{ gold:20, xp:35, hunger:0,  magic:25, icon:'💎', color:0x00ffcc },
+  bone_flower:    { gold:14, xp:22, hunger:10, icon:'🦴', color:0xddddcc },
+  shadow_herb:    { gold:22, xp:38, hunger:8,  magic:5,  icon:'🌑', color:0x330033 },
+  dark_crystal:   { gold:28, xp:45, hunger:0,  magic:30, icon:'🔮', color:0x6600cc },
+  cursed_flower:  { gold:25, xp:40, hunger:12, icon:'🌸', color:0xff0066 },
+};
+
+const plants = [];
+function spawnPlants(n=1){
+  for(let i=0;i<n;i++){
+    const r=REALMS[G.currentRealm];
+    const ptype=r.plants[Math.floor(Math.random()*r.plants.length)];
+    const def=PLANT_DEFS[ptype]||PLANT_DEFS.fern;
+    const x=(Math.random()-0.5)*160, z=(Math.random()-0.5)*160;
+
+    const g=new THREE.Group();
+    g.position.set(x,0,z);
+
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.5,5),
+      new THREE.MeshLambertMaterial({color:0x1a6b2a}));
+    stem.position.y=0.25; g.add(stem);
+
+    let topGeo;
+    if(ptype.includes('crystal')||ptype.includes('Crystal'))  topGeo=new THREE.OctahedronGeometry(0.35,0);
+    else if(ptype.includes('flower')) topGeo=new THREE.TorusGeometry(0.22,0.09,5,8);
+    else if(ptype.includes('mushroom')) topGeo=new THREE.SphereGeometry(0.35,7,5);
+    else topGeo=new THREE.ConeGeometry(0.3,0.65,5);
+
+    const top=new THREE.Mesh(topGeo, new THREE.MeshPhongMaterial({color:def.color,shininess:50}));
+    top.position.y=0.65; top.castShadow=true; g.add(top);
+
+    // Glow aura for magical plants
+    if(def.magic){
+      const aura=new THREE.PointLight(def.color,0.5,3);
+      aura.position.y=0.8; g.add(aura);
+    }
+
+    scene.add(g);
+    plants.push({mesh:g, type:ptype, def, alive:true, x, z});
+  }
+}
+
+function eatPlant(p){
+  if(!p.alive) return;
+  p.alive=false; scene.remove(p.mesh);
+  const d=p.def;
+  G.gold+=d.gold; G.xp+=d.xp;
+  G.hunger=Math.min(100,G.hunger+(d.hunger||0));
+  G.magic=Math.min(100,G.magic+(d.magic||0));
+  spawnParticles(p.x,1,p.z,d.color,8);
+  showFloatText(`+${d.gold}g`, p.x, p.z);
+  checkLevelUp(); updateUI();
+  setTimeout(()=>spawnPlants(1),5000+Math.random()*3000);
+}
+
+function checkNearPlants(){
+  for(let p of plants){
+    if(!p.alive) continue;
+    const dx=G.dragonPos.x-p.x, dz=G.dragonPos.z-p.z;
+    if(dx*dx+dz*dz<3){ eatPlant(p); return; }
+  }
+}
+
+// ════════════════════════════════════════
+//  BOSS
+// ════════════════════════════════════════
+let bossGroup=null;
+let bossAnim=0;
+
+const BOSS_TYPES={
+  spider:{
+    buildFn(g,sc){
+      const bm=new THREE.MeshPhongMaterial({color:0x1a0a00,shininess:30});
+      const body=new THREE.Mesh(new THREE.SphereGeometry(1.5*sc,10,8),bm);
+      body.castShadow=true; g.add(body);
+      // 8 legs
+      for(let i=0;i<8;i++){
+        const a=(i/8)*Math.PI*2;
+        const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.1*sc,0.06*sc,2*sc,4),bm);
+        leg.position.set(Math.cos(a)*1.5*sc,0,Math.sin(a)*1.5*sc);
+        leg.rotation.z=Math.cos(a)*1.2; leg.rotation.x=Math.sin(a)*0.8;
+        g.add(leg);
+      }
+      // Eyes
+      for(let i=0;i<6;i++){
+        const ex=new THREE.Mesh(new THREE.SphereGeometry(0.12*sc,5,5),
+          new THREE.MeshBasicMaterial({color:0xff0000}));
+        ex.position.set((i%3-1)*0.45*sc,(0.6+Math.floor(i/3)*0.3)*sc,1.3*sc);
+        g.add(ex);
+      }
+    }
+  },
+  serpent:{
+    buildFn(g,sc){
+      for(let i=0;i<6;i++){
+        const seg=new THREE.Mesh(
+          new THREE.SphereGeometry((1.4-i*0.12)*sc,8,6),
+          new THREE.MeshPhongMaterial({color:0x1a4a00,shininess:60})
+        );
+        seg.position.set(0,-i*0.5*sc,-i*1.2*sc); seg.castShadow=true; g.add(seg);
+      }
+      // Head
+      const head=new THREE.Mesh(new THREE.SphereGeometry(1.2*sc,10,8),
+        new THREE.MeshPhongMaterial({color:0x255c00,shininess:40}));
+      head.position.set(0,0.5*sc,1.5*sc); g.add(head);
+      // Eyes
+      [-1,1].forEach(s=>{
+        const e=new THREE.Mesh(new THREE.SphereGeometry(0.2*sc,6,6),
+          new THREE.MeshBasicMaterial({color:0xffdd00}));
+        e.position.set(s*0.5*sc,0.7*sc,2.2*sc); g.add(e);
+      });
+      // Fangs
+      [-0.3,0.3].forEach(x=>{
+        const f=new THREE.Mesh(new THREE.ConeGeometry(0.12*sc,0.5*sc,4),
+          new THREE.MeshPhongMaterial({color:0xffffff}));
+        f.position.set(x*sc,0.1*sc,2.7*sc); g.add(f);
+      });
+    }
+  },
+  basilisk:{
+    buildFn(g,sc){
+      for(let i=0;i<10;i++){
+        const seg=new THREE.Mesh(
+          new THREE.SphereGeometry((1.6-i*0.1)*sc,8,6),
+          new THREE.MeshPhongMaterial({color:0x003300,shininess:80,specular:0x00ff00})
+        );
+        seg.position.set(Math.sin(i*0.6)*i*0.8*sc,-i*0.3*sc,-i*1.0*sc);
+        seg.castShadow=true; g.add(seg);
+      }
+      const head=new THREE.Mesh(new THREE.SphereGeometry(1.6*sc,10,8),
+        new THREE.MeshPhongMaterial({color:0x004400,shininess:60}));
+      head.position.set(0,0.8*sc,2.0*sc); g.add(head);
+      // Deadly eyes
+      [-1,1].forEach(s=>{
+        const m=new THREE.MeshBasicMaterial({color:0xffff00});
+        m.emissive=new THREE.Color(0xffaa00); 
+        const e=new THREE.Mesh(new THREE.SphereGeometry(0.25*sc,6,6),m);
+        e.position.set(s*0.6*sc,1.0*sc,3.0*sc); g.add(e);
+        // Glow
+        const pl=new THREE.PointLight(0xffff00,1,8);
+        pl.position.copy(e.position); g.add(pl);
+      });
+    }
+  },
+  wraith:{
+    buildFn(g,sc){
+      const mat=new THREE.MeshPhongMaterial({color:0x110022,transparent:true,opacity:0.85,shininess:20});
+      const body=new THREE.Mesh(new THREE.SphereGeometry(1.4*sc,10,8),mat);
+      g.add(body);
+      // Robes
+      const robeGeo=new THREE.ConeGeometry(1.8*sc,3*sc,8);
+      const robe=new THREE.Mesh(robeGeo,new THREE.MeshPhongMaterial({color:0x0a0010,transparent:true,opacity:0.9}));
+      robe.position.y=-1.5*sc; g.add(robe);
+      // Hood
+      const hood=new THREE.Mesh(new THREE.SphereGeometry(1.0*sc,8,6),mat);
+      hood.position.set(0,1.0*sc,0); g.add(hood);
+      // Eyes — Avada Kedavra green
+      [-1,1].forEach(s=>{
+        const em=new THREE.MeshBasicMaterial({color:0x00ff00});
+        const e=new THREE.Mesh(new THREE.SphereGeometry(0.18*sc,5,5),em);
+        e.position.set(s*0.35*sc,1.0*sc,0.85*sc); g.add(e);
+        const pl=new THREE.PointLight(0x00ff00,1.5,10);
+        pl.position.copy(e.position); g.add(pl);
+      });
+      // Orbiting dark spheres
+      for(let i=0;i<3;i++){
+        const orb=new THREE.Mesh(new THREE.SphereGeometry(0.22*sc,6,6),
+          new THREE.MeshBasicMaterial({color:0x440066}));
+        orb.userData.orbitAngle=(i/3)*Math.PI*2;
+        orb.userData.orbitR=2.2*sc;
+        g.add(orb);
+      }
+    }
+  }
+};
+
+function spawnBoss(){
+  if(bossGroup){ scene.remove(bossGroup); bossGroup=null; }
+  const r=REALMS[G.currentRealm];
+  bossGroup=new THREE.Group();
+  const bsc=1.5+G.bossPhase*0.3;
+  BOSS_TYPES[r.bossType].buildFn(bossGroup, bsc);
+
+  // Aura
+  const aura=new THREE.Mesh(
+    new THREE.SphereGeometry(2.8*bsc,12,8),
+    new THREE.MeshBasicMaterial({color:r.bossColor,transparent:true,opacity:0.06,side:THREE.BackSide})
+  );
+  bossGroup.add(aura);
+
+  bossGroup.position.set(40,2,0);
+  scene.add(bossGroup);
+  G.bossHp=200+G.bossPhase*80; G.bossMaxHp=G.bossHp;
+  G.bossActive=true;
+  document.getElementById('boss-hud').style.display='block';
+  document.getElementById('boss-name-label').textContent=r.bossName.toUpperCase();
+  showNotif('⚠️ '+r.bossName+' approaches!');
+}
+
+function updateBoss(){
+  if(!G.bossActive||!bossGroup) return;
+  bossAnim+=0.04;
+  const dx=G.dragonPos.x-bossGroup.position.x;
+  const dz=G.dragonPos.z-bossGroup.position.z;
+  const dist=Math.sqrt(dx*dx+dz*dz);
+  const spd=0.055+G.bossPhase*0.012;
+  if(dist>3.5){ bossGroup.position.x+=dx/dist*spd; bossGroup.position.z+=dz/dist*spd; }
+  bossGroup.position.y=2+Math.sin(bossAnim)*0.3;
+  bossGroup.lookAt(G.dragonPos.x, bossGroup.position.y, G.dragonPos.z);
+
+  // Orbit dark spheres (wraith)
+  bossGroup.children.forEach(c=>{
+    if(c.userData.orbitAngle!==undefined){
+      c.userData.orbitAngle+=0.05;
+      c.position.x=Math.cos(c.userData.orbitAngle)*c.userData.orbitR;
+      c.position.z=Math.sin(c.userData.orbitAngle)*c.userData.orbitR;
+      c.position.y=Math.sin(c.userData.orbitAngle*1.3)*0.8;
+    }
+  });
+
+  if(dist<4 && G.frameCount%80===0){
+    const dmg=10+G.bossPhase*4+(G.currentRealm*2);
+    G.hp=Math.max(0,G.hp-dmg);
+    spawnParticles(G.dragonPos.x,1.5,G.dragonPos.z,0xff0000,6);
+    updateUI();
+    if(G.hp<=0) gameOver();
+  }
+  // Boss hp bar
+  document.getElementById('boss-hp-fill').style.width=(G.bossHp/G.bossMaxHp*100)+'%';
+}
+
+function defeatBoss(){
+  G.bossActive=false; G.bossPhase++;
+  const reward=100+G.bossPhase*40;
+  G.gold+=reward; G.xp+=300;
+  spawnParticles(bossGroup.position.x,3,bossGroup.position.z,0xffd700,24);
+  scene.remove(bossGroup); bossGroup=null;
+  document.getElementById('boss-hud').style.display='none';
+  updateUI(); checkLevelUp();
+  const r=REALMS[G.currentRealm];
+  showMessage('🏆','Boss Vanquished!',`The ${r.bossName} is defeated! Earned 🪙${reward} gold & 300 XP!`);
+}
+
+// ════════════════════════════════════════
+//  PROJECTILES
+// ════════════════════════════════════════
+const fireballs=[], spells=[];
+
+function shootFire(){
+  if(G.fireCd>0||G.gameOver) return;
+  G.fireCd=20;
+  const fb=new THREE.Mesh(
+    new THREE.SphereGeometry(0.28,7,7),
+    new THREE.MeshBasicMaterial({color:0xff5500})
+  );
+  // Spawn at snout tip using neckGroup world position/quaternion
+  const neckWorldQuat = new THREE.Quaternion();
+  const snoutWorld = new THREE.Vector3();
+  if(neckGroup){
+    neckGroup.getWorldQuaternion(neckWorldQuat);
+    neckGroup.getWorldPosition(snoutWorld);
+    // nudge forward along the neck's facing direction to reach the snout
+    snoutWorld.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWorldQuat), 1.2);
+  } else {
+    snoutWorld.copy(dragonGroup.position); snoutWorld.y+=1;
+    dragonGroup.getWorldQuaternion(neckWorldQuat);
+  }
+  fb.position.copy(snoutWorld);
+  const dir=new THREE.Vector3(0,0,1).applyQuaternion(neckWorldQuat).normalize();
+  const dmg=12+G.upgrades.teeth*14+G.level*2;
+  scene.add(fb);
+  fireballs.push({mesh:fb,dir,life:80,dmg});
+  // Tail whip AoE
+  if(G.upgrades.tail>=1){
+    const aoe=G.upgrades.tail*8;
+    if(G.bossActive&&bossGroup){
+      const bd=bossGroup.position.distanceTo(dragonGroup.position);
+      if(bd<8){ G.bossHp-=aoe; showNotif(`Tail whip! -${aoe}`); }
+    }
+  }
+}
+
+function shootSpell(){
+  if(G.spellCd>0||G.magic<20||G.gameOver) return;
+  G.spellCd=60; G.magic=Math.max(0,G.magic-20);
+  const colors=[0x00ffcc,0xffd700,0x9b59b6,0xff0044];
+  const sc=new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.35),
+    new THREE.MeshBasicMaterial({color:colors[G.currentRealm]})
+  );
+  const neckWorldQuat2 = new THREE.Quaternion();
+  const snoutWorld2 = new THREE.Vector3();
+  if(neckGroup){
+    neckGroup.getWorldQuaternion(neckWorldQuat2);
+    neckGroup.getWorldPosition(snoutWorld2);
+    snoutWorld2.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWorldQuat2), 1.2);
+  } else {
+    snoutWorld2.copy(dragonGroup.position); snoutWorld2.y+=1.2;
+    dragonGroup.getWorldQuaternion(neckWorldQuat2);
+  }
+  sc.position.copy(snoutWorld2);
+  const dir=new THREE.Vector3(0,0,1).applyQuaternion(neckWorldQuat2).normalize();
+  const dmg=25+G.level*5+G.currentRealm*10;
+  scene.add(sc);
+  spells.push({mesh:sc,dir,life:100,dmg,spin:0});
+  spawnParticles(dragonGroup.position.x,2,dragonGroup.position.z,colors[G.currentRealm],10);
+  updateUI();
+}
+
+function updateProjectiles(){
+  [...fireballs].forEach((fb,i)=>{
+    fb.mesh.position.addScaledVector(fb.dir,0.55);
+    fb.life--;
+    for(let p of plants){
+      if(!p.alive) continue;
+      if(fb.mesh.position.distanceTo(p.mesh.position)<1.6){ eatPlant(p); fb.life=0; break; }
+    }
+    if(G.bossActive&&bossGroup&&fb.mesh.position.distanceTo(bossGroup.position)<3.5){
+      G.bossHp-=fb.dmg; spawnParticles(bossGroup.position.x,2,bossGroup.position.z,0xff4400);
+      if(G.bossHp<=0) defeatBoss(); fb.life=0;
+    }
+    // Hit werewolves
+    if(G.currentRealm===1){
+      for(let w of werewolves){
+        if(!w.alive) continue;
+        if(fb.mesh.position.distanceTo(w.mesh.position)<2){ hitWerewolf(w,fb.dmg); fb.life=0; break; }
+      }
+    }
+    // Hit zombies
+    if(G.currentRealm===0){
+      for(let z of zombies){
+        if(!z.alive) continue;
+        if(fb.mesh.position.distanceTo(z.mesh.position)<1.8){ hitZombie(z,fb.dmg); fb.life=0; break; }
+      }
+    }
+    if(fb.life<=0){ scene.remove(fb.mesh); fireballs.splice(i,1); }
+  });
+  [...spells].forEach((sp,i)=>{
+    sp.mesh.position.addScaledVector(sp.dir,0.7);
+    sp.mesh.rotation.y+=(sp.spin+=0.15);
+    sp.life--;
+    if(G.bossActive&&bossGroup&&sp.mesh.position.distanceTo(bossGroup.position)<4){
+      G.bossHp-=sp.dmg; spawnParticles(bossGroup.position.x,2,bossGroup.position.z,0x9b59b6,12);
+      showNotif(`✨ Spell! -${sp.dmg}`);
+      if(G.bossHp<=0) defeatBoss(); sp.life=0;
+    }
+    // Hit werewolves
+    if(G.currentRealm===1){
+      for(let w of werewolves){
+        if(!w.alive) continue;
+        if(sp.mesh.position.distanceTo(w.mesh.position)<2.5){ hitWerewolf(w,sp.dmg); sp.life=0; break; }
+      }
+    }
+    // Hit zombies
+    if(G.currentRealm===0){
+      for(let z of zombies){
+        if(!z.alive) continue;
+        if(sp.mesh.position.distanceTo(z.mesh.position)<2.2){ hitZombie(z,sp.dmg); sp.life=0; break; }
+      }
+    }
+    if(sp.life<=0){ scene.remove(sp.mesh); spells.splice(i,1); }
+  });
+  if(G.fireCd>0) G.fireCd--;
+  if(G.spellCd>0) G.spellCd--;
+}
+
+// ════════════════════════════════════════
+//  PARTICLES
+// ════════════════════════════════════════
+const particles=[];
+function spawnParticles(x,y,z,color,n=8){
+  for(let i=0;i<n;i++){
+    const m=new THREE.Mesh(new THREE.SphereGeometry(0.1,4,4),new THREE.MeshBasicMaterial({color}));
+    m.position.set(x,y,z);
+    const vx=(Math.random()-0.5)*0.35, vy=0.1+Math.random()*0.25, vz=(Math.random()-0.5)*0.35;
+    scene.add(m); particles.push({mesh:m,vx,vy,vz,life:35});
+  }
+}
+function updateParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.mesh.position.x+=p.vx; p.mesh.position.y+=p.vy; p.mesh.position.z+=p.vz;
+    p.vy-=0.012; p.life--;
+    if(p.life<=0){ scene.remove(p.mesh); particles.splice(i,1); }
+  }
+}
+
+// ════════════════════════════════════════
+//  WEREWOLVES (Hogwarts realm only)
+// ════════════════════════════════════════
+const werewolves = [];
+let howlTimer = 0;
+
+function buildWerewolfMesh() {
+  const g = new THREE.Group();
+  const fur = new THREE.MeshPhongMaterial({ color: 0x3d2b1f, shininess: 15 });
+  const darkFur = new THREE.MeshPhongMaterial({ color: 0x1a1008, shininess: 10 });
+
+  // Hunched body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.65, 9, 7), fur);
+  body.scale.set(1, 1.2, 0.9); body.position.set(0, 1.1, 0); body.castShadow = true; g.add(body);
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 9, 7), fur);
+  head.position.set(0, 1.95, 0.35); head.castShadow = true; g.add(head);
+
+  // Snout
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.45, 7), fur);
+  snout.rotation.x = Math.PI / 2; snout.position.set(0, 1.82, 0.72); g.add(snout);
+
+  // Nose
+  g.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.09,5,5),
+    new THREE.MeshPhongMaterial({color:0x111111})), {position: new THREE.Vector3(0,1.88,0.94)}));
+
+  // Glowing yellow eyes
+  [-1,1].forEach(s=>{
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09,6,6), new THREE.MeshBasicMaterial({color:0xffcc00}));
+    eye.position.set(s*0.18, 2.05, 0.6); g.add(eye);
+    const glow = new THREE.PointLight(0xffaa00, 0.6, 3);
+    glow.position.copy(eye.position); g.add(glow);
+  });
+
+  // Pointy ears
+  [-1,1].forEach(s=>{
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.32,5), fur);
+    ear.position.set(s*0.28, 2.38, 0.22); ear.rotation.z = s*0.3; g.add(ear);
+  });
+
+  // Arms with claws
+  [-1,1].forEach(s=>{
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.1,0.7,6), fur);
+    upper.position.set(s*0.78,1.1,0.15); upper.rotation.z=s*0.7; upper.rotation.x=0.4; g.add(upper);
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.6,5), fur);
+    lower.position.set(s*1.18,0.72,0.48); lower.rotation.z=s*1.1; lower.rotation.x=0.7; g.add(lower);
+    for(let c=0;c<3;c++){
+      const claw = new THREE.Mesh(new THREE.ConeGeometry(0.04,0.2,4), darkFur);
+      claw.position.set(s*(1.42+c*0.06-0.06), 0.38-c*0.04, 0.72); claw.rotation.x=0.9; g.add(claw);
+    }
+  });
+
+  // Legs
+  [-1,1].forEach(s=>{
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.12,0.65,6), fur);
+    thigh.position.set(s*0.3,0.52,0); thigh.rotation.x=0.2; g.add(thigh);
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.08,0.55,5), fur);
+    shin.position.set(s*0.3,0.08,0.2); shin.rotation.x=-0.35; g.add(shin);
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.14,6,5), darkFur);
+    paw.position.set(s*0.3,-0.18,0.3); g.add(paw);
+  });
+
+  // Tail
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.03,0.7,5), fur);
+  tail.position.set(0,0.9,-0.65); tail.rotation.x=-0.8; g.add(tail);
+
+  // Fur spikes on back
+  for(let i=0;i<5;i++){
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.25,4), darkFur);
+    spike.position.set((Math.random()-0.5)*0.6, 1.6+i*0.05, -0.1-i*0.1);
+    spike.rotation.x=-0.5; g.add(spike);
+  }
+  return g;
+}
+
+function spawnWerewolves(count=4){
+  for(let i=0;i<count;i++){
+    let x, z;
+    do { x=(Math.random()-0.5)*160; z=(Math.random()-0.5)*160; }
+    while(Math.sqrt(x*x+z*z)<20);
+    const mesh = buildWerewolfMesh();
+    mesh.position.set(x,0,z);
+    scene.add(mesh);
+    werewolves.push({ mesh, x, z, hp:40, maxHp:40, gold:15+Math.floor(Math.random()*10),
+      xp:30, alive:true, state:'roam', roamAngle:Math.random()*Math.PI*2,
+      roamTimer:0, attackCd:0, legAnim:Math.random()*Math.PI*2 });
+  }
+}
+
+function clearWerewolves(){
+  werewolves.forEach(w=>{ if(w.alive) scene.remove(w.mesh); });
+  werewolves.length=0;
+}
+
+function updateWerewolves(){
+  if(G.currentRealm!==1||G.gameOver) return;
+  howlTimer++;
+  if(howlTimer%900===0 && werewolves.some(w=>w.alive))
+    showNotif('🐺 The werewolves howl at the moon...');
+
+  werewolves.forEach(w=>{
+    if(!w.alive) return;
+    const dx=G.dragonPos.x-w.mesh.position.x, dz=G.dragonPos.z-w.mesh.position.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    w.attackCd=Math.max(0,w.attackCd-1);
+    w.legAnim+=0.14;
+    w.mesh.position.y=Math.abs(Math.sin(w.legAnim))*0.1;
+
+    if(dist<24){
+      // Chase
+      const spd=0.06;
+      w.mesh.position.x+=(dx/dist)*spd; w.mesh.position.z+=(dz/dist)*spd;
+      w.mesh.lookAt(G.dragonPos.x, w.mesh.position.y, G.dragonPos.z);
+      w.x=w.mesh.position.x; w.z=w.mesh.position.z;
+      // Claw attack
+      if(dist<2.8 && w.attackCd===0){
+        w.attackCd=100;
+        const dmg=6+G.level;
+        G.hp=Math.max(0,G.hp-dmg);
+        spawnParticles(G.dragonPos.x,1.5,G.dragonPos.z,0xffaa00,5);
+        showNotif(`🐺 Werewolf claws! -${dmg} HP`);
+        updateUI(); if(G.hp<=0) gameOver();
+      }
+    } else {
+      // Roam
+      w.roamTimer--;
+      if(w.roamTimer<=0){ w.roamAngle=Math.random()*Math.PI*2; w.roamTimer=80+Math.random()*120; }
+      w.mesh.position.x=Math.max(-100,Math.min(100, w.mesh.position.x+Math.cos(w.roamAngle)*0.03));
+      w.mesh.position.z=Math.max(-100,Math.min(100, w.mesh.position.z+Math.sin(w.roamAngle)*0.03));
+      w.x=w.mesh.position.x; w.z=w.mesh.position.z;
+    }
+  });
+}
+
+function hitWerewolf(w, dmg){
+  if(!w.alive) return;
+  w.hp-=dmg;
+  spawnParticles(w.mesh.position.x,1.5,w.mesh.position.z,0xffcc00,6);
+  if(w.hp<=0) killWerewolf(w);
+}
+
+function killWerewolf(w){
+  w.alive=false; scene.remove(w.mesh);
+  G.gold+=w.gold; G.xp+=w.xp;
+  spawnParticles(w.x,1,w.z,0xffd700,12);
+  showFloatText(`+${w.gold}g 🐺`, w.x, w.z);
+  checkLevelUp(); updateUI();
+  setTimeout(()=>{
+    if(G.currentRealm===1&&!G.gameOver){
+      const idx=werewolves.indexOf(w); if(idx!==-1) werewolves.splice(idx,1);
+      spawnWerewolves(1);
+    }
+  }, 12000);
+}
+
+// ════════════════════════════════════════
+//  ZOMBIES (Forbidden Forest — realm 0)
+// ════════════════════════════════════════
+const zombies = [];
+
+// Two zombie types: 'injured' (limping, very slow, low hp) and 'weak' (shambling, a bit faster)
+function buildZombieMesh(type) {
+  const g = new THREE.Group();
+  const skinColor  = type === 'injured' ? 0x4a6b3a : 0x3a5c2a; // greenish rotting flesh
+  const darkSkin   = type === 'injured' ? 0x2a3d20 : 0x253d18;
+  const clothColor = type === 'injured' ? 0x2a1a0a : 0x1e1408; // torn rags
+
+  const skin = new THREE.MeshPhongMaterial({ color: skinColor, shininess: 5 });
+  const dark = new THREE.MeshPhongMaterial({ color: darkSkin,  shininess: 5 });
+  const cloth= new THREE.MeshPhongMaterial({ color: clothColor,shininess: 2 });
+  const bone = new THREE.MeshPhongMaterial({ color: 0xd4c8a0,  shininess: 20 });
+
+  // ── HEAD ──
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 7), skin);
+  head.position.set(0, 1.72, 0);
+  head.castShadow = true;
+  g.add(head);
+
+  // Sunken eyes — glowing sickly green
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x44ff22 });
+  [-1,1].forEach(s => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 5, 5), eyeMat);
+    eye.position.set(s * 0.12, 1.76, 0.24);
+    g.add(eye);
+    const glow = new THREE.PointLight(0x22ff00, 0.4, 2.5);
+    glow.position.copy(eye.position);
+    g.add(glow);
+  });
+
+  // Exposed jaw / gaping mouth
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), dark);
+  jaw.scale.set(1, 0.5, 0.8);
+  jaw.position.set(0, 1.56, 0.2);
+  g.add(jaw);
+
+  // Exposed teeth
+  for(let i = 0; i < 3; i++) {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), bone);
+    tooth.position.set(-0.08 + i * 0.08, 1.52, 0.28);
+    g.add(tooth);
+  }
+
+  // Skull crack on top (injured type only)
+  if(type === 'injured') {
+    const crack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04, 0.06, 0.2),
+      new THREE.MeshPhongMaterial({ color: 0x1a0000 })
+    );
+    crack.position.set(0.08, 1.96, 0);
+    crack.rotation.z = 0.3;
+    g.add(crack);
+  }
+
+  // ── TORSO — torn ragged shirt ──
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.24, 0.7, 7), cloth);
+  torso.position.set(0, 1.1, 0);
+  torso.castShadow = true;
+  g.add(torso);
+
+  // Exposed ribcage strip
+  for(let i = 0; i < 3; i++) {
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 4, 8, Math.PI), bone);
+    rib.position.set(0, 1.28 - i * 0.13, 0.05);
+    rib.rotation.x = Math.PI / 2;
+    g.add(rib);
+  }
+
+  // ── ARMS — outstretched (zombie pose) ──
+  // Injured type: one arm drooping, one outstretched
+  [-1, 1].forEach((s, idx) => {
+    const drooping = (type === 'injured' && idx === 0); // left arm droops
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.55, 6), skin);
+    upper.position.set(s * 0.42, drooping ? 0.85 : 1.15, drooping ? 0.05 : 0.2);
+    upper.rotation.z = drooping ? s * 1.4 : s * 0.5;
+    upper.rotation.x = drooping ? 0.1 : -0.5; // reach forward
+    g.add(upper);
+
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.45, 5), skin);
+    lower.position.set(s * 0.62, drooping ? 0.52 : 1.05, drooping ? 0.05 : 0.42);
+    lower.rotation.z = drooping ? s * 1.6 : s * 0.4;
+    lower.rotation.x = drooping ? 0 : -0.7;
+    g.add(lower);
+
+    // Bony hand
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.08, 5, 5), bone);
+    hand.scale.set(1, 0.7, 1.2);
+    hand.position.set(s * 0.72, drooping ? 0.28 : 0.96, drooping ? 0.05 : 0.6);
+    g.add(hand);
+
+    // Finger claws
+    for(let f = 0; f < 3; f++) {
+      const finger = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 4), bone);
+      finger.position.set(s * (0.72 + f * 0.02), drooping ? 0.18 : 0.84, drooping ? 0.05 + f*0.05 : 0.68 + f*0.04);
+      finger.rotation.x = drooping ? 0 : -0.5;
+      g.add(finger);
+    }
+  });
+
+  // ── LEGS — dragging gait ──
+  [-1, 1].forEach(s => {
+    const injured_leg = (type === 'injured' && s === 1); // right leg is damaged
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.6, 6), cloth);
+    thigh.position.set(s * 0.18, 0.58, 0);
+    thigh.rotation.z = injured_leg ? s * 0.25 : 0;
+    g.add(thigh);
+
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.5, 5), skin);
+    shin.position.set(s * 0.2, 0.16, injured_leg ? 0.1 : 0);
+    shin.rotation.x = injured_leg ? 0.4 : 0;
+    g.add(shin);
+
+    // Foot / exposed bone
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.22), injured_leg ? bone : cloth);
+    foot.position.set(s * 0.2, -0.1, injured_leg ? 0.18 : 0.06);
+    g.add(foot);
+  });
+
+  // Torn cloth strips hanging off torso
+  for(let i = 0; i < 4; i++) {
+    const strip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.18, 0.03),
+      new THREE.MeshPhongMaterial({ color: clothColor, transparent: true, opacity: 0.8 })
+    );
+    strip.position.set(
+      (Math.random() - 0.5) * 0.4,
+      0.78 + Math.random() * 0.2,
+      0.2 + Math.random() * 0.1
+    );
+    strip.rotation.z = (Math.random() - 0.5) * 0.6;
+    g.add(strip);
+  }
+
+  // Rotting flesh wound marks (dark splotches)
+  for(let i = 0; i < 3; i++) {
+    const wound = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04 + Math.random() * 0.04, 5, 4),
+      new THREE.MeshBasicMaterial({ color: 0x1a0800 })
+    );
+    wound.position.set(
+      (Math.random() - 0.5) * 0.4,
+      0.9 + Math.random() * 0.7,
+      0.22 + Math.random() * 0.05
+    );
+    g.add(wound);
+  }
+
+  return g;
+}
+
+function spawnZombies(count = 5) {
+  for(let i = 0; i < count; i++) {
+    let x, z;
+    do { x = (Math.random() - 0.5) * 160; z = (Math.random() - 0.5) * 160; }
+    while(Math.sqrt(x*x + z*z) < 18);
+
+    const type = Math.random() < 0.55 ? 'injured' : 'weak';
+    const mesh = buildZombieMesh(type);
+    mesh.position.set(x, 0, z);
+    scene.add(mesh);
+
+    zombies.push({
+      mesh, x, z, type,
+      hp:    type === 'injured' ? 15 : 25,
+      maxHp: type === 'injured' ? 15 : 25,
+      gold:  type === 'injured' ? 8  : 12,
+      xp:    type === 'injured' ? 18 : 28,
+      dmg:   type === 'injured' ? 3  : 5,
+      speed: type === 'injured' ? 0.018 : 0.032, // injured are very slow
+      alive: true,
+      state: 'roam',
+      roamAngle: Math.random() * Math.PI * 2,
+      roamTimer: 0,
+      attackCd: 0,
+      legAnim: Math.random() * Math.PI * 2,
+      groanTimer: Math.floor(Math.random() * 300),
+    });
+  }
+}
+
+function clearZombies() {
+  zombies.forEach(z => { if(z.alive) scene.remove(z.mesh); });
+  zombies.length = 0;
+}
+
+function updateZombies() {
+  if(G.currentRealm !== 0 || G.gameOver) return;
+
+  zombies.forEach(z => {
+    if(!z.alive) return;
+
+    z.attackCd = Math.max(0, z.attackCd - 1);
+    z.groanTimer--;
+
+    // Periodic groan notif
+    if(z.groanTimer <= 0) {
+      z.groanTimer = 400 + Math.floor(Math.random() * 500);
+      if(Math.hypot(G.dragonPos.x - z.x, G.dragonPos.z - z.z) < 30)
+        showNotif(z.type === 'injured' ? '🧟 A wounded zombie drags itself toward you...' : '🧟 A zombie shambles from the shadows!');
+    }
+
+    // Leg drag animation — injured limps with a tilt, weak shuffles
+    z.legAnim += z.type === 'injured' ? 0.04 : 0.07;
+    if(z.type === 'injured') {
+      // Lopsided limp: tilt body side to side unevenly
+      z.mesh.rotation.z = Math.sin(z.legAnim) * 0.18;
+      z.mesh.position.y = Math.max(0, Math.sin(z.legAnim * 0.8) * 0.06);
+    } else {
+      // Weak: slow shuffle bob
+      z.mesh.position.y = Math.abs(Math.sin(z.legAnim)) * 0.08;
+      z.mesh.rotation.z = Math.sin(z.legAnim * 0.5) * 0.08;
+    }
+
+    // Find nearest player
+    const d1 = Math.hypot(G.dragonPos.x - z.mesh.position.x, G.dragonPos.z - z.mesh.position.z);
+    const d2 = COOP_MODE ? Math.hypot(G2.dragonPos.x - z.mesh.position.x, G2.dragonPos.z - z.mesh.position.z) : Infinity;
+    const nearest = d1 <= d2 ? G.dragonPos : G2.dragonPos;
+    const dist = Math.min(d1, d2);
+
+    const dx = nearest.x - z.mesh.position.x;
+    const dz = nearest.z - z.mesh.position.z;
+
+    if(dist < 28) {
+      // Shamble toward player
+      z.mesh.position.x += (dx / dist) * z.speed;
+      z.mesh.position.z += (dz / dist) * z.speed;
+      // Face player (slow turn for injured)
+      z.mesh.lookAt(nearest.x, z.mesh.position.y, nearest.z);
+      z.x = z.mesh.position.x; z.z = z.mesh.position.z;
+
+      // Bite/grab attack
+      if(dist < 2.2 && z.attackCd === 0) {
+        z.attackCd = z.type === 'injured' ? 160 : 110; // injured attack slowly
+        if(d1 <= d2) {
+          G.hp = Math.max(0, G.hp - z.dmg);
+          spawnParticles(G.dragonPos.x, 1, G.dragonPos.z, 0x22ff00, 4);
+          showNotif(`🧟 Zombie bite! -${z.dmg} HP`);
+          updateUI(); if(G.hp <= 0) gameOver();
+        } else {
+          G2.hp = Math.max(0, G2.hp - z.dmg);
+          spawnParticles(G2.dragonPos.x, 1, G2.dragonPos.z, 0x22ff00, 4);
+          showNotif(`🧟 P2 bitten! -${z.dmg} HP`);
+          updateUI2();
+        }
+      }
+    } else {
+      // Roam slowly
+      z.roamTimer--;
+      if(z.roamTimer <= 0) {
+        z.roamAngle = Math.random() * Math.PI * 2;
+        z.roamTimer = 120 + Math.random() * 200;
+      }
+      z.mesh.position.x = Math.max(-100, Math.min(100, z.mesh.position.x + Math.cos(z.roamAngle) * z.speed * 0.5));
+      z.mesh.position.z = Math.max(-100, Math.min(100, z.mesh.position.z + Math.sin(z.roamAngle) * z.speed * 0.5));
+      z.x = z.mesh.position.x; z.z = z.mesh.position.z;
+    }
+  });
+}
+
+function hitZombie(z, dmg) {
+  if(!z.alive) return;
+  z.hp -= dmg;
+  spawnParticles(z.mesh.position.x, 1.2, z.mesh.position.z, 0x22ff00, 5);
+  if(z.hp <= 0) killZombie(z);
+}
+
+function killZombie(z) {
+  z.alive = false;
+  scene.remove(z.mesh);
+  G.gold += z.gold; G.xp += z.xp;
+  spawnParticles(z.x, 1, z.z, 0x44ff22, 10);
+  showFloatText(`+${z.gold}g 🧟`, z.x, z.z);
+  checkLevelUp(); updateUI();
+  // Respawn after delay if still in Forbidden Forest
+  setTimeout(() => {
+    if(G.currentRealm === 0 && !G.gameOver) {
+      const idx = zombies.indexOf(z); if(idx !== -1) zombies.splice(idx, 1);
+      spawnZombies(1);
+    }
+  }, 10000 + Math.random() * 5000);
+}
+
+// ════════════════════════════════════════
+//  FLOATING TEXT
+// ════════════════════════════════════════
+function showFloatText(text, wx, wz){
+  // Project world to screen roughly
+  const v=new THREE.Vector3(wx,1.5,wz).project(camera);
+  const x=(v.x+1)/2*innerWidth, y=(1-v.y)/2*innerHeight;
+  const el=document.createElement('div');
+  el.className='float-text';
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.textContent=text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+// ════════════════════════════════════════
+//  MOVEMENT
+// ════════════════════════════════════════
+function updateDragon(){
+  if(G.gameOver) return;
+  const spd=(0.13+G.upgrades.wings*0.028)*(G.hunger>15?1:0.45);
+  let mx=0, mz=0;
+  if(G.move.up||G.keys.w||G.keys.W) mz-=spd;
+  if(G.move.down||G.keys.s||G.keys.S) mz+=spd;
+  if(G.move.left||G.keys.a||G.keys.A) mx-=spd;
+  if(G.move.right||G.keys.d||G.keys.D) mx+=spd;
+
+  if(mx||mz){
+    G.dragonPos.x=Math.max(-110,Math.min(110,G.dragonPos.x+mx));
+    G.dragonPos.z=Math.max(-110,Math.min(110,G.dragonPos.z+mz));
+    // target angle: head points in movement direction
+    G.dragonPos.targetAngle=Math.atan2(mx,-mz)+Math.PI;
+  }
+
+  // Smoothly interpolate rotation angle (shortest path)
+  if(G.dragonPos.targetAngle !== undefined){
+    let diff = G.dragonPos.targetAngle - G.dragonPos.angle;
+    // Wrap to [-PI, PI]
+    while(diff > Math.PI)  diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    G.dragonPos.angle += diff * 0.18;
+  }
+
+  bobT+=0.055;
+  dragonGroup.position.set(G.dragonPos.x, 0.9+Math.sin(bobT)*(mx||mz?0.18:0.06), G.dragonPos.z);
+  dragonGroup.rotation.y=G.dragonPos.angle;
+  dragonGlow.position.set(G.dragonPos.x, 3, G.dragonPos.z);
+
+  // Camera
+  const camT=new THREE.Vector3(G.dragonPos.x,12,G.dragonPos.z+20);
+  camera.position.lerp(camT,0.06);
+  camera.lookAt(G.dragonPos.x,1,G.dragonPos.z);
+}
+
+// ════════════════════════════════════════
+//  HUNGER & MAGIC REGEN
+// ════════════════════════════════════════
+function updateStats(){
+  if(G.frameCount%200===0){
+    G.hunger=Math.max(0,G.hunger-2);
+    if(G.hunger===0){ G.hp=Math.max(0,G.hp-4); if(G.hp<=0) gameOver(); }
+    G.magic=Math.min(100,G.magic+3);
+    updateUI();
+  }
+}
+
+// ════════════════════════════════════════
+//  BOSS SPAWN CHECK
+// ════════════════════════════════════════
+function checkBossSpawn(){
+  if(!G.bossActive && G.level>=3 && G.frameCount%600===0 && !G.gameOver){
+    if(Math.floor(G.level/3)>G.bossPhase) spawnBoss();
+  }
+}
+
+// ════════════════════════════════════════
+//  LEVEL UP
+// ════════════════════════════════════════
+function checkLevelUp(){
+  if(G.xp>=G.xpNeeded){
+    G.xp-=G.xpNeeded; G.level++;
+    G.xpNeeded=Math.floor(G.xpNeeded*1.45);
+    G.maxHp+=20; G.hp=G.maxHp;
+    buildDragon(); updateUI();
+    const title=TITLES[Math.min(G.level-1,7)];
+    showNotif(`⭐ Level ${G.level} — ${title}!`);
+    spawnParticles(G.dragonPos.x,2,G.dragonPos.z,0xffd700,16);
+  }
+}
+
+// ════════════════════════════════════════
+//  VIKING → WEREWOLF CUTSCENE
+// ════════════════════════════════════════
+let hogwartsCutscenePlayed = false;
+
+function playCutscene(onComplete) {
+  const cs       = document.getElementById('cutscene');
+  const textEl   = document.getElementById('cs-text');
+  const vikInner = document.getElementById('cs-vik-inner');
+  const viking   = document.getElementById('cs-viking');
+  const moon     = document.getElementById('cs-moon');
+  const flash    = document.getElementById('cs-flash-layer');
+  const skipBtn  = document.getElementById('cs-skip');
+
+  cs.classList.add('active');
+  G.cutscenePlaying = true;
+
+  let skipped = false;
+  function endCutscene() {
+    if(skipped) return;
+    skipped = true;
+    cs.classList.remove('active');
+    // reset styles
+    moon.style.animation = '';
+    vikInner.style.opacity = '1';
+    vikInner.innerHTML = vikInner.innerHTML; // reset
+    G.cutscenePlaying = false;
+    onComplete();
+  }
+  skipBtn.onclick = endCutscene;
+
+  // Helper: set subtitle text
+  function setText(txt, delay) {
+    return new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      textEl.style.animation = 'none';
+      textEl.offsetHeight; // reflow
+      textEl.style.animation = '';
+      textEl.textContent = txt;
+      res();
+    }, delay));
+  }
+
+  // Helper: add a shockwave ring at viking position
+  function addRing() {
+    const ring = document.createElement('div');
+    ring.className = 'cs-ring';
+    ring.style.cssText = 'left:50%;top:40%;position:absolute;';
+    document.getElementById('cs-stage').appendChild(ring);
+    setTimeout(() => ring.remove(), 1300);
+  }
+
+  // Helper: flash screen
+  function doFlash(color, delay) {
+    return new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      flash.style.background = color;
+      flash.style.transition = 'opacity 0.08s';
+      flash.style.opacity = '0.85';
+      setTimeout(() => {
+        flash.style.transition = 'opacity 0.6s';
+        flash.style.opacity = '0';
+        setTimeout(res, 650);
+      }, 120);
+    }, delay));
+  }
+
+  // ── SEQUENCE ──
+  async function run() {
+    // Beat 1 — Viking strolls
+    await setText('A lone Viking wanders the Hogwarts grounds at dusk...', 0);
+    // Bob viking gently (walking)
+    let walkInt = setInterval(() => {
+      if(skipped){ clearInterval(walkInt); return; }
+      viking.style.transform = viking.style.transform === 'translateX(-50%) translateY(-3px)'
+        ? 'translateX(-50%)'
+        : 'translateX(-50%) translateY(-3px)';
+    }, 300);
+
+    await setText('"Ah, what a peaceful evening to pillage some— wait..."', 2400);
+    await setText('He looks up and sees the full moon rising over the castle...', 4800);
+
+    // Moon grows & turns blood red
+    await new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      moon.style.transition = 'all 1.2s ease';
+      moon.style.transform = 'translateX(-50%) scale(1.35)';
+      moon.style.background = 'radial-gradient(circle at 38% 38%, #ffccaa, #e04000 40%, #800000)';
+      moon.style.boxShadow = '0 0 80px 30px rgba(200,0,0,0.5), 0 0 160px 60px rgba(150,0,0,0.25)';
+      setTimeout(res, 1300);
+    }, 0));
+
+    await setText('The blood moon rises. Something stirs within him...', 6800);
+
+    // Stop walking
+    clearInterval(walkInt);
+    viking.style.transform = 'translateX(-50%)';
+
+    // Beat 2 — Viking starts shaking
+    await new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      viking.style.animation = 'csShake 0.35s ease infinite';
+      setTimeout(res, 800);
+    }, 500));
+
+    await setText('"What... what is happening to me?! AAARGH!!"', 8500);
+
+    // Beat 3 — Flash + partial transform (body turns dark)
+    await doFlash('#ffffff', 1200);
+    await new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      addRing();
+      // Viking body darkens
+      vikInner.querySelectorAll('.vik-body, .vik-arm').forEach(el => {
+        el.style.background = '#3d2b1f';
+        el.style.transition = 'background 0.8s';
+      });
+      vikInner.querySelector('.vik-head').style.background = '#5a3a20';
+      setTimeout(res, 900);
+    }, 200));
+
+    await setText('His skin bristles with dark fur. His hands become claws...', 10500);
+
+    // Beat 4 — Viking GROWS, head morphs
+    await new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      viking.style.animation = 'csGrow 0.6s ease forwards, csShake 0.25s ease infinite';
+      // Elongate head to snout shape
+      const head = vikInner.querySelector('.vik-head');
+      head.style.transition = 'all 0.7s ease';
+      head.style.borderRadius = '30% 30% 50% 50%';
+      head.style.width = (head.offsetWidth * 1.3) + 'px';
+      // Remove helmet
+      vikInner.querySelector('.vik-helmet').style.opacity = '0';
+      vikInner.querySelector('.vik-helmet').style.transition = 'opacity 0.5s';
+      setTimeout(res, 800);
+    }, 400));
+
+    await doFlash('#ff0000', 400);
+    addRing(); addRing();
+
+    await setText('He howls at the moon — he is a werewolf now!', 12800);
+
+    // Beat 5 — Full werewolf silhouette swap
+    await new Promise(res => setTimeout(() => {
+      if(skipped){ res(); return; }
+      // Build a simple CSS werewolf silhouette in place
+      vikInner.style.transition = 'opacity 0.3s';
+      vikInner.style.opacity = '0';
+      setTimeout(() => {
+        if(skipped){ res(); return; }
+        vikInner.innerHTML = `
+          <div style="
+            width:clamp(50px,9vw,80px);
+            height:clamp(90px,16vw,140px);
+            background:#2a1a0e;
+            clip-path:polygon(
+              30% 0%,50% 0%,70% 0%,
+              75% 5%,85% 2%,90% 10%,
+              80% 18%,85% 30%,100% 38%,
+              95% 55%,80% 50%,75% 70%,
+              85% 100%,70% 100%,60% 72%,
+              40% 72%,30% 100%,15% 100%,
+              25% 70%,20% 50%,5% 55%,
+              0% 38%,15% 30%,20% 18%,
+              10% 10%,15% 2%,25% 5%
+            );
+            filter:drop-shadow(0 0 18px rgba(255,100,0,0.4));
+            animation:csGrow 1.5s ease infinite alternate;
+          "></div>
+        `;
+        vikInner.style.opacity = '1';
+        res();
+      }, 350);
+    }, 200));
+
+    // Howl rings burst
+    for(let i = 0; i < 4; i++) setTimeout(() => addRing(), i * 280);
+
+    // Moon returns
+    moon.style.transform = 'translateX(-50%) scale(1.5)';
+
+    await setText('"AWOOOOOO!!!" The Hogwarts grounds will never be the same...', 15000);
+    await setText('Watch out — werewolves now roam Hogwarts!  🐺', 17800);
+
+    // End
+    await new Promise(res => setTimeout(res, 2200));
+    endCutscene();
+  }
+
+  run();
+}
+
+// ════════════════════════════════════════
+//  REALM CHANGE
+// ════════════════════════════════════════
+function changeRealm(ri){
+  if(ri===G.currentRealm) return;
+  const flash=document.getElementById('realm-flash');
+  flash.style.opacity=1;
+  setTimeout(()=>{
+    G.currentRealm=ri;
+    const r=REALMS[ri];
+    // Sky / fog / ground
+    skyMat.color.setHex(r.sky);
+    scene.fog=new THREE.FogExp2(r.fog[0],r.fog[1]);
+    groundMat.color.setHex(r.ground);
+    gridHelper.material[0].color.setHex(r.gridColor);
+    gridHelper.material[1].color.setHex(r.gridColor);
+    ambientLight.color.setHex(r.ambient[0]); ambientLight.intensity=r.ambient[1];
+    sunLight.color.setHex(r.sun[0]); sunLight.intensity=r.sun[1];
+    // Rebuild
+    buildRealmEnvironment(ri);
+    // Clear old plants
+    plants.forEach(p=>{ if(p.alive) scene.remove(p.mesh); });
+    plants.length=0;
+    spawnPlants(20);
+    // Zombies: spawn in Forbidden Forest, clear when leaving
+    clearZombies();
+    if(ri===0){ spawnZombies(5); showNotif('🧟 Injured zombies lurk in the Forbidden Forest...'); }
+    // Werewolves: spawn in Hogwarts, clear when leaving
+    clearWerewolves();
+    if(ri===1){
+      if(!hogwartsCutscenePlayed){
+        hogwartsCutscenePlayed = true;
+        // Play cutscene, then spawn werewolves after it ends
+        playCutscene(()=>{
+          spawnWerewolves(4);
+          showNotif('🐺 The werewolves now prowl Hogwarts!');
+        });
+      } else {
+        spawnWerewolves(4);
+        showNotif('🐺 Werewolves lurk the Hogwarts grounds!');
+      }
+    }
+    // Update dragon look
+    buildDragon();
+    // Update UI badge
+    document.getElementById('realm-icon').textContent=r.icon;
+    document.getElementById('realm-name').textContent=r.name;
+    document.querySelectorAll('.realm-btn').forEach(b=>{
+      b.classList.toggle('active', parseInt(b.dataset.realm)===ri);
+    });
+    flash.style.opacity=0;
+    showNotif(`✨ Entered ${r.name}`);
+    renderer.setClearColor(r.sky);
+  },320);
+}
+
+// ════════════════════════════════════════
+//  SHOP
+// ════════════════════════════════════════
+const SHOP_DATA=[
+  { section:'Dragon Body', items:[
+    { id:'teeth', name:'Fangs',      icon:'🦷', desc:'Bite dmg +14/hit', cost:[50,120,260], max:3 },
+    { id:'wings', name:'Wings',      icon:'🪽', desc:'+2.8% move speed', cost:[60,140,300], max:3 },
+    { id:'tail',  name:'Tail Spike', icon:'🦎', desc:'AoE whip unlock',  cost:[55,130,280], max:3 },
+    { id:'scales',name:'Arcane Scales',icon:'🐉',desc:'Magical barrier', cost:[80,180,360], max:3 },
+  ]},
+];
+
+function renderShop(){
+  const container=document.getElementById('shop-sections');
+  container.innerHTML='';
+  SHOP_DATA.forEach(sec=>{
+    const div=document.createElement('div');
+    div.innerHTML=`<h3>${sec.section}</h3>`;
+    const grid=document.createElement('div'); grid.className='item-grid';
+    sec.items.forEach(item=>{
+      const lv=G.upgrades[item.id]||0;
+      const cost=lv<item.max?item.cost[lv]:null;
+      const card=document.createElement('div'); card.className='shop-card';
+      card.innerHTML=`
+        <div class="sc-icon">${item.icon}</div>
+        <div class="sc-name">${item.name}<span class="sc-lv">LV${lv}</span></div>
+        <div class="sc-desc">${item.desc}</div>
+        <div class="sc-cost">${cost?'🪙'+cost:'✅ MAX'}</div>
+      `;
+      if(cost) card.onclick=()=>buyUpgrade(item.id,cost);
+      grid.appendChild(card);
+    });
+    div.appendChild(grid); container.appendChild(div);
+  });
+}
+
+function buyUpgrade(id,cost){
+  if(G.gold<cost){ showNotif('Not enough gold!'); return; }
+  G.gold-=cost; G.upgrades[id]=(G.upgrades[id]||0)+1;
+  buildDragon(); updateUI(); renderShop();
+  showNotif(`✨ ${id.charAt(0).toUpperCase()+id.slice(1)} upgraded to Lv${G.upgrades[id]}!`);
+}
+
+document.getElementById('btn-shop').addEventListener('click',()=>{ renderShop(); document.getElementById('shop-panel').style.display='flex'; });
+document.getElementById('sh-close').addEventListener('click',()=>{ document.getElementById('shop-panel').style.display='none'; });
+document.getElementById('sh-heal').addEventListener('click',()=>{
+  if(G.gold<30){ showNotif('Need 30g!'); return; }
+  G.gold-=30; G.hp=Math.min(G.maxHp,G.hp+60); G.hunger=Math.min(100,G.hunger+40); G.magic=Math.min(100,G.magic+30);
+  updateUI(); showNotif('❤️ Restored!');
+});
+
+// ════════════════════════════════════════
+//  UI UPDATE
+// ════════════════════════════════════════
+function updateUI(){
+  document.getElementById('hp-bar').style.width=(G.hp/G.maxHp*100)+'%';
+  document.getElementById('xp-bar').style.width=(G.xp/G.xpNeeded*100)+'%';
+  document.getElementById('food-bar').style.width=G.hunger+'%';
+  document.getElementById('magic-bar').style.width=G.magic+'%';
+  document.getElementById('gold-val').textContent=G.gold;
+  document.getElementById('lv-val').textContent=G.level;
+  document.getElementById('dragon-title').textContent=TITLES[Math.min(G.level-1,7)];
+}
+
+function showMessage(deco,title,body){
+  document.getElementById('msg-deco').textContent=deco;
+  document.getElementById('msg-title').textContent=title;
+  document.getElementById('msg-body').textContent=body;
+  document.getElementById('msg-overlay').style.display='flex';
+}
+document.getElementById('msg-ok').addEventListener('click',()=>{ document.getElementById('msg-overlay').style.display='none'; });
+
+function showNotif(text){
+  const el=document.getElementById('notif');
+  el.textContent=text; el.style.display='block';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',2500);
+}
+
+function gameOver(){
+  if(G.gameOver) return;
+  G.gameOver=true;
+  showMessage('💀','Your Dragon Has Fallen',`You reached Level ${G.level} as a ${TITLES[Math.min(G.level-1,7)]} and earned ${G.gold} magical gold. Refresh to begin anew.`);
+  document.getElementById('msg-ok').textContent='Refresh';
+  document.getElementById('msg-ok').onclick=()=>location.reload();
+}
+
+// ════════════════════════════════════════
+//  MINIMAP
+// ════════════════════════════════════════
+const mmCtx=document.getElementById('mm-canvas').getContext('2d');
+function drawMinimap(){
+  mmCtx.fillStyle='#050310'; mmCtx.fillRect(0,0,80,80);
+  const cx=40, cy=40, sc=80/220;
+  // Plants
+  mmCtx.fillStyle='#27ae60';
+  plants.forEach(p=>{
+    if(!p.alive) return;
+    mmCtx.fillRect(cx+p.x*sc-1,cy+p.z*sc-1,2,2);
+  });
+  // Werewolves (yellow dots in Hogwarts)
+  if(G.currentRealm===1){
+    mmCtx.fillStyle='#ffcc00';
+    werewolves.forEach(w=>{
+      if(!w.alive) return;
+      mmCtx.beginPath();
+      mmCtx.arc(cx+w.x*sc,cy+w.z*sc,2,0,Math.PI*2);
+      mmCtx.fill();
+    });
+  }
+  // Zombies (green dots in Forbidden Forest)
+  if(G.currentRealm===0){
+    zombies.forEach(z=>{
+      if(!z.alive) return;
+      mmCtx.fillStyle = z.type==='injured' ? '#33aa22' : '#55dd33';
+      mmCtx.beginPath();
+      mmCtx.arc(cx+z.x*sc,cy+z.z*sc,z.type==='injured'?1.5:2,0,Math.PI*2);
+      mmCtx.fill();
+    });
+  }
+  // Boss
+  if(G.bossActive&&bossGroup){
+    mmCtx.fillStyle='#e74c3c';
+    mmCtx.fillRect(cx+bossGroup.position.x*sc-3,cy+bossGroup.position.z*sc-3,6,6);
+  }
+  // Dragon P1
+  mmCtx.fillStyle='#c9a84c';
+  mmCtx.beginPath();
+  mmCtx.arc(cx+G.dragonPos.x*sc,cy+G.dragonPos.z*sc,3,0,Math.PI*2);
+  mmCtx.fill();
+  // Dragon P2
+  if(COOP_MODE){
+    mmCtx.fillStyle='#00aaff';
+    mmCtx.beginPath();
+    mmCtx.arc(cx+G2.dragonPos.x*sc,cy+G2.dragonPos.z*sc,3,0,Math.PI*2);
+    mmCtx.fill();
+  }
+}
+
+// ════════════════════════════════════════
+//  MULTIPLAYER SYSTEM
+// ════════════════════════════════════════
+let COOP_MODE = false;
+
+// ── Player 2 state ──
+const G2 = {
+  hp:100, maxHp:100, xp:0, xpNeeded:100, level:1,
+  gold:0, hunger:100, magic:100,
+  upgrades:{ teeth:0, wings:0, tail:0, scales:0 },
+  fireCd:0, spellCd:0,
+  dragonPos:{ x:8, z:0, angle:Math.PI, targetAngle:Math.PI },
+  move:{ up:false, down:false, left:false, right:false },
+  gameOver:false,
+};
+
+const dragonGroup2 = new THREE.Group();
+let neckGroup2 = null;
+let bobT2 = 0;
+
+// P2 camera (renders right half in split mode)
+const camera2 = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 400);
+camera2.position.set(8, 12, 28);
+
+// P2 fireballs & spells
+const fireballs2 = [], spells2 = [];
+
+function buildDragon2() {
+  while(dragonGroup2.children.length) dragonGroup2.remove(dragonGroup2.children[0]);
+  neckGroup2 = new THREE.Group();
+  const lv = G2.level, sc = 0.5 + lv * 0.1;
+  // P2 dragon is always blue-themed regardless of realm
+  const bodyColors2 = [0x3498db,0x2980b9,0x1abc9c,0x16a085,0x2ecc71,0x27ae60,0x7fdfff,0x00aaff];
+  const bc = bodyColors2[Math.min(lv-1,7)];
+  const mat = (c,shi=60) => new THREE.MeshPhongMaterial({color:c,shininess:shi});
+
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.8*sc,10,8),mat(bc));
+  body.castShadow=true; dragonGroup2.add(body);
+
+  // Wings
+  const wl=G2.upgrades.wings;
+  if(wl>0){
+    [-1,1].forEach(s=>{
+      const wg=new THREE.Mesh(new THREE.ConeGeometry(0.18*sc*(1+wl*0.25),(1+wl*0.3)*sc,4),
+        new THREE.MeshPhongMaterial({color:0x1a5c8a,side:THREE.DoubleSide,transparent:true,opacity:0.85}));
+      wg.rotation.z=s*(1.1-wl*0.1); wg.rotation.x=-0.3;
+      wg.position.set(s*(0.85+wl*0.1)*sc,0.4*sc,-0.1*sc); dragonGroup2.add(wg);
+    });
+  }
+  // Tail
+  const taill=G2.upgrades.tail;
+  const tail=new THREE.Mesh(new THREE.CylinderGeometry(0.15*sc,0.04*sc,(1.1+taill*0.4)*sc,6),mat(bc));
+  tail.rotation.x=Math.PI/2.5; tail.position.set(0,-0.2*sc,-1.0*sc); dragonGroup2.add(tail);
+  // Legs
+  [[-0.55,0,0.3],[0.55,0,0.3],[-0.55,0,-0.3],[0.55,0,-0.3]].forEach(p=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.1*sc,0.08*sc,0.5*sc,5),mat(bc));
+    leg.position.set(p[0]*sc,-0.6*sc,p[2]*sc); leg.rotation.z=p[0]>0?0.3:-0.3; dragonGroup2.add(leg);
+  });
+
+  // Neck group
+  neckGroup2.position.set(0,0.55*sc,0.35*sc);
+  dragonGroup2.add(neckGroup2);
+  const neckLen=0.75*sc;
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.2*sc,0.3*sc,neckLen,8),mat(bc));
+  neck.position.set(0,neckLen*0.38,neckLen*0.32); neck.rotation.x=-0.48; neck.castShadow=true;
+  neckGroup2.add(neck);
+  const neckMid=new THREE.Mesh(new THREE.SphereGeometry(0.23*sc,8,6),mat(bc));
+  neckMid.position.set(0,neckLen*0.6,neckLen*0.5); neckGroup2.add(neckMid);
+
+  const hY=neckLen*0.78, hZ=neckLen*0.66;
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.55*sc,10,8),mat(bc));
+  head.position.set(0,hY,hZ); head.castShadow=true; neckGroup2.add(head);
+  const snout=new THREE.Mesh(new THREE.ConeGeometry(0.22*sc,0.45*sc,6),mat(bc));
+  snout.rotation.x=Math.PI/2; snout.position.set(0,hY-0.1*sc,hZ+0.42*sc); neckGroup2.add(snout);
+
+  // Ice-blue eyes for P2
+  const eyeM=mat(0x00ffff,100); eyeM.emissive=new THREE.Color(0x00aaff); eyeM.emissiveIntensity=1.2;
+  [-1,1].forEach(s=>{
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.1*sc,6,6),eyeM);
+    e.position.set(0.26*s*sc,hY+0.15*sc,hZ+0.25*sc); neckGroup2.add(e);
+  });
+
+  // Nostrils (blue tinted)
+  [-1,1].forEach(s=>{
+    const n=new THREE.Mesh(new THREE.CircleGeometry(0.06*sc,5),new THREE.MeshBasicMaterial({color:0x0044ff}));
+    n.position.set(0.1*s*sc,hY-0.08*sc,hZ+0.56*sc); neckGroup2.add(n);
+  });
+
+  // P2 name tag (always visible)
+  const tagEl = document.createElement('div');
+  tagEl.style.cssText='position:fixed;background:rgba(41,128,185,0.8);color:#fff;font-size:9px;border-radius:4px;padding:2px 6px;pointer-events:none;z-index:12;font-style:italic;display:none';
+  tagEl.id='p2-tag'; tagEl.textContent='🐉 Player 2';
+  document.body.appendChild(tagEl);
+}
+
+function updateDragon2() {
+  if(G2.gameOver||!COOP_MODE) return;
+  const spd=(0.13+G2.upgrades.wings*0.028)*(G2.hunger>15?1:0.45);
+  let mx=0, mz=0;
+  if(G2.move.up)    mz-=spd;
+  if(G2.move.down)  mz+=spd;
+  if(G2.move.left)  mx-=spd;
+  if(G2.move.right) mx+=spd;
+
+  if(mx||mz){
+    G2.dragonPos.x=Math.max(-110,Math.min(110,G2.dragonPos.x+mx));
+    G2.dragonPos.z=Math.max(-110,Math.min(110,G2.dragonPos.z+mz));
+    G2.dragonPos.targetAngle=Math.atan2(-mx,-mz)+Math.PI;
+  }
+  let diff=G2.dragonPos.targetAngle-G2.dragonPos.angle;
+  while(diff>Math.PI) diff-=Math.PI*2;
+  while(diff<-Math.PI) diff+=Math.PI*2;
+  G2.dragonPos.angle+=diff*0.18;
+
+  bobT2+=0.055;
+  dragonGroup2.position.set(G2.dragonPos.x, 0.9+Math.sin(bobT2)*(mx||mz?0.18:0.06), G2.dragonPos.z);
+  dragonGroup2.rotation.y=G2.dragonPos.angle;
+  if(neckGroup2) neckGroup2.rotation.y=0;
+
+  // P2 camera follows P2 dragon
+  const camT2=new THREE.Vector3(G2.dragonPos.x,12,G2.dragonPos.z+20);
+  camera2.position.lerp(camT2,0.06);
+  camera2.lookAt(G2.dragonPos.x,1,G2.dragonPos.z);
+
+  // P2 tag position
+  const tag=document.getElementById('p2-tag');
+  if(tag&&COOP_MODE){
+    const v=new THREE.Vector3(G2.dragonPos.x,2.5,G2.dragonPos.z).project(camera2);
+    // Map to right half of screen
+    const sx=innerWidth/2 + (v.x+1)/2*innerWidth/2;
+    const sy=(1-v.y)/2*innerHeight;
+    tag.style.left=sx+'px'; tag.style.top=(sy-20)+'px'; tag.style.display='block';
+  }
+}
+
+function shootFire2() {
+  if(G2.fireCd>0||G2.gameOver) return;
+  G2.fireCd=20;
+  const fb=new THREE.Mesh(new THREE.SphereGeometry(0.28,7,7),
+    new THREE.MeshBasicMaterial({color:0x0088ff}));
+  const neckWQ2 = new THREE.Quaternion();
+  const snoutW2 = new THREE.Vector3();
+  if(neckGroup2){
+    neckGroup2.getWorldQuaternion(neckWQ2);
+    neckGroup2.getWorldPosition(snoutW2);
+    snoutW2.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWQ2), 1.2);
+  } else {
+    snoutW2.copy(dragonGroup2.position); snoutW2.y+=1;
+    dragonGroup2.getWorldQuaternion(neckWQ2);
+  }
+  fb.position.copy(snoutW2);
+  const dir=new THREE.Vector3(0,0,1).applyQuaternion(neckWQ2).normalize();
+  const dmg=12+G2.upgrades.teeth*14+G2.level*2;
+  scene.add(fb);
+  fireballs2.push({mesh:fb,dir,life:80,dmg});
+}
+
+function shootSpell2() {
+  if(G2.spellCd>0||G2.magic<20||G2.gameOver) return;
+  G2.spellCd=60; G2.magic=Math.max(0,G2.magic-20);
+  const sc=new THREE.Mesh(new THREE.OctahedronGeometry(0.35),
+    new THREE.MeshBasicMaterial({color:0x00ffff}));
+  const neckWQ2s = new THREE.Quaternion();
+  const snoutW2s = new THREE.Vector3();
+  if(neckGroup2){
+    neckGroup2.getWorldQuaternion(neckWQ2s);
+    neckGroup2.getWorldPosition(snoutW2s);
+    snoutW2s.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWQ2s), 1.2);
+  } else {
+    snoutW2s.copy(dragonGroup2.position); snoutW2s.y+=1.2;
+    dragonGroup2.getWorldQuaternion(neckWQ2s);
+  }
+  sc.position.copy(snoutW2s);
+  const dir=new THREE.Vector3(0,0,1).applyQuaternion(neckWQ2s).normalize();
+  const dmg=25+G2.level*5;
+  scene.add(sc);
+  spells2.push({mesh:sc,dir,life:100,dmg,spin:0});
+  updateUI2();
+}
+
+function updateProjectiles2() {
+  if(!fireballs2.length && !spells2.length) return;
+  [...fireballs2].forEach((fb,i)=>{
+    fb.mesh.position.addScaledVector(fb.dir,0.55); fb.life--;
+    for(let p of plants){
+      if(!p.alive) continue;
+      if(fb.mesh.position.distanceTo(p.mesh.position)<1.6){ eatPlantP2(p); fb.life=0; break; }
+    }
+    if(G.bossActive&&bossGroup&&fb.mesh.position.distanceTo(bossGroup.position)<3.5){
+      G.bossHp-=fb.dmg; spawnParticles(bossGroup.position.x,2,bossGroup.position.z,0x0088ff);
+      if(G.bossHp<=0) defeatBoss(); fb.life=0;
+    }
+    if(G.currentRealm===1){
+      for(let w of werewolves){
+        if(!w.alive) continue;
+        if(fb.mesh.position.distanceTo(w.mesh.position)<2){ hitWerewolf(w,fb.dmg); fb.life=0; break; }
+      }
+    }
+    if(G.currentRealm===0){
+      for(let z of zombies){
+        if(!z.alive) continue;
+        if(fb.mesh.position.distanceTo(z.mesh.position)<1.8){ hitZombie(z,fb.dmg); fb.life=0; break; }
+      }
+    }
+    if(fb.life<=0){ scene.remove(fb.mesh); fireballs2.splice(i,1); }
+  });
+  [...spells2].forEach((sp,i)=>{
+    sp.mesh.position.addScaledVector(sp.dir,0.7);
+    sp.mesh.rotation.y+=(sp.spin+=0.15); sp.life--;
+    if(G.bossActive&&bossGroup&&sp.mesh.position.distanceTo(bossGroup.position)<4){
+      G.bossHp-=sp.dmg; if(G.bossHp<=0) defeatBoss(); sp.life=0;
+    }
+    if(G.currentRealm===1){
+      for(let w of werewolves){
+        if(!w.alive) continue;
+        if(sp.mesh.position.distanceTo(w.mesh.position)<2.5){ hitWerewolf(w,sp.dmg); sp.life=0; break; }
+      }
+    }
+    if(G.currentRealm===0){
+      for(let z of zombies){
+        if(!z.alive) continue;
+        if(sp.mesh.position.distanceTo(z.mesh.position)<2.2){ hitZombie(z,sp.dmg); sp.life=0; break; }
+      }
+    }
+    if(sp.life<=0){ scene.remove(sp.mesh); spells2.splice(i,1); }
+  });
+  if(G2.fireCd>0) G2.fireCd--;
+  if(G2.spellCd>0) G2.spellCd--;
+}
+
+function eatPlantP2(p) {
+  if(!p.alive) return;
+  p.alive=false; scene.remove(p.mesh);
+  G2.gold+=p.def.gold; G2.xp+=p.def.xp;
+  G2.hunger=Math.min(100,G2.hunger+(p.def.hunger||0));
+  G2.magic=Math.min(100,G2.magic+(p.def.magic||0));
+  spawnParticles(p.x,1,p.z,0x0088ff,8);
+  checkLevelUp2(); updateUI2();
+  setTimeout(()=>spawnPlants(1),5000+Math.random()*3000);
+}
+
+function checkNearPlantsP2() {
+  if(!COOP_MODE) return;
+  for(let p of plants){
+    if(!p.alive) continue;
+    const dx=G2.dragonPos.x-p.x, dz=G2.dragonPos.z-p.z;
+    if(dx*dx+dz*dz<3){ eatPlantP2(p); return; }
+  }
+}
+
+function checkLevelUp2() {
+  if(G2.xp>=G2.xpNeeded){
+    G2.xp-=G2.xpNeeded; G2.level++;
+    G2.xpNeeded=Math.floor(G2.xpNeeded*1.45);
+    G2.maxHp+=20; G2.hp=G2.maxHp;
+    buildDragon2(); updateUI2();
+    showNotif(`🔵 P2 Level Up! Now Level ${G2.level}!`);
+  }
+}
+
+function updateUI2() {
+  if(!COOP_MODE) return;
+  document.getElementById('hp-bar-p2').style.width=(G2.hp/G2.maxHp*100)+'%';
+  document.getElementById('xp-bar-p2').style.width=(G2.xp/G2.xpNeeded*100)+'%';
+  document.getElementById('food-bar-p2').style.width=G2.hunger+'%';
+  document.getElementById('magic-bar-p2').style.width=G2.magic+'%';
+  document.getElementById('gold-val-p2').textContent=G2.gold;
+  document.getElementById('lv-val-p2').textContent=G2.level;
+}
+
+function updateStatsP2() {
+  if(!COOP_MODE) return;
+  if(G.frameCount%200===0){
+    G2.hunger=Math.max(0,G2.hunger-2);
+    if(G2.hunger===0){ G2.hp=Math.max(0,G2.hp-4); }
+    G2.magic=Math.min(100,G2.magic+3);
+    updateUI2();
+  }
+}
+
+// Boss attacks nearest player
+function updateBossMulti() {
+  if(!G.bossActive||!bossGroup) return;
+  if(!COOP_MODE) { updateBoss(); return; }
+
+  bossAnim+=0.04;
+  // Find nearest player
+  const d1=Math.hypot(G.dragonPos.x-bossGroup.position.x, G.dragonPos.z-bossGroup.position.z);
+  const d2=Math.hypot(G2.dragonPos.x-bossGroup.position.x, G2.dragonPos.z-bossGroup.position.z);
+  const target = d1 < d2 ? G.dragonPos : G2.dragonPos;
+  const dist = Math.min(d1, d2);
+
+  const dx=target.x-bossGroup.position.x, dz=target.z-bossGroup.position.z;
+  const spd=0.055+G.bossPhase*0.012;
+  if(dist>3.5){ bossGroup.position.x+=dx/dist*spd; bossGroup.position.z+=dz/dist*spd; }
+  bossGroup.position.y=2+Math.sin(bossAnim)*0.3;
+  bossGroup.lookAt(target.x, bossGroup.position.y, target.z);
+  bossGroup.children.forEach(c=>{
+    if(c.userData.orbitAngle!==undefined){
+      c.userData.orbitAngle+=0.05;
+      c.position.x=Math.cos(c.userData.orbitAngle)*c.userData.orbitR;
+      c.position.z=Math.sin(c.userData.orbitAngle)*c.userData.orbitR;
+      c.position.y=Math.sin(c.userData.orbitAngle*1.3)*0.8;
+    }
+  });
+  if(G.frameCount%80===0){
+    const dmg=10+G.bossPhase*4+(G.currentRealm*2);
+    if(d1<=d2){ G.hp=Math.max(0,G.hp-dmg); spawnParticles(G.dragonPos.x,1.5,G.dragonPos.z,0xff0000,6); updateUI(); if(G.hp<=0) gameOver(); }
+    else       { G2.hp=Math.max(0,G2.hp-dmg); spawnParticles(G2.dragonPos.x,1.5,G2.dragonPos.z,0xff0000,6); updateUI2(); }
+  }
+  document.getElementById('boss-hp-fill').style.width=(G.bossHp/G.bossMaxHp*100)+'%';
+}
+
+function updateWerewolvesMulti() {
+  if(G.currentRealm!==1||G.gameOver) return;
+  howlTimer++;
+  if(howlTimer%900===0&&werewolves.some(w=>w.alive)) showNotif('🐺 The werewolves howl at the moon...');
+
+  werewolves.forEach(w=>{
+    if(!w.alive) return;
+    // Target nearest player
+    const dx1=G.dragonPos.x-w.mesh.position.x, dz1=G.dragonPos.z-w.mesh.position.z;
+    const dx2=COOP_MODE?G2.dragonPos.x-w.mesh.position.x:dx1;
+    const dz2=COOP_MODE?G2.dragonPos.z-w.mesh.position.z:dz1;
+    const d1=Math.sqrt(dx1*dx1+dz1*dz1), d2=Math.sqrt(dx2*dx2+dz2*dz2);
+    const dx=d1<=d2?dx1:dx2, dz=d1<=d2?dz1:dz2, dist=Math.min(d1,d2);
+
+    w.attackCd=Math.max(0,w.attackCd-1);
+    w.legAnim+=0.14;
+    w.mesh.position.y=Math.abs(Math.sin(w.legAnim))*0.1;
+
+    if(dist<24){
+      const spd=0.06;
+      w.mesh.position.x+=(dx/dist)*spd; w.mesh.position.z+=(dz/dist)*spd;
+      w.mesh.lookAt(d1<=d2?G.dragonPos.x:G2.dragonPos.x, w.mesh.position.y, d1<=d2?G.dragonPos.z:G2.dragonPos.z);
+      w.x=w.mesh.position.x; w.z=w.mesh.position.z;
+      if(dist<2.8&&w.attackCd===0){
+        w.attackCd=100; const dmg=6+G.level;
+        if(d1<=d2){ G.hp=Math.max(0,G.hp-dmg); spawnParticles(G.dragonPos.x,1.5,G.dragonPos.z,0xffaa00,5); showNotif(`🐺 Werewolf claws! -${dmg} HP`); updateUI(); if(G.hp<=0) gameOver(); }
+        else       { G2.hp=Math.max(0,G2.hp-dmg); spawnParticles(G2.dragonPos.x,1.5,G2.dragonPos.z,0xffaa00,5); showNotif(`🐺 P2 clawed! -${dmg} HP`); updateUI2(); }
+      }
+    } else {
+      w.roamTimer--; if(w.roamTimer<=0){ w.roamAngle=Math.random()*Math.PI*2; w.roamTimer=80+Math.random()*120; }
+      w.mesh.position.x=Math.max(-100,Math.min(100,w.mesh.position.x+Math.cos(w.roamAngle)*0.03));
+      w.mesh.position.z=Math.max(-100,Math.min(100,w.mesh.position.z+Math.sin(w.roamAngle)*0.03));
+      w.x=w.mesh.position.x; w.z=w.mesh.position.z;
+    }
+  });
+}
+
+// ── Split-screen renderer ──
+function renderSplitScreen() {
+  const w=innerWidth, h=innerHeight;
+  // Left half — P1
+  renderer.setViewport(0,0,w/2,h);
+  renderer.setScissor(0,0,w/2,h);
+  renderer.setScissorTest(true);
+  renderer.render(scene,camera);
+  // Right half — P2
+  renderer.setViewport(w/2,0,w/2,h);
+  renderer.setScissor(w/2,0,w/2,h);
+  renderer.render(scene,camera2);
+  renderer.setScissorTest(false);
+}
+
+// ── Mode select UI ──
+function initModeSelect() {
+  const sel=document.getElementById('mp-select');
+  const coopHint=document.getElementById('coop-hint');
+  const startBtn=document.getElementById('btn-start-coop');
+
+  document.getElementById('btn-solo').addEventListener('click',()=>{
+    sel.style.display='none';
+    startGame(false);
+  });
+  document.getElementById('btn-coop').addEventListener('click',()=>{
+    coopHint.style.display='block'; startBtn.style.display='block';
+  });
+  startBtn.addEventListener('click',()=>{
+    sel.style.display='none';
+    startGame(true);
+  });
+}
+
+function startGame(coop) {
+  COOP_MODE = coop;
+  if(coop){
+    // Show P2 UI
+    document.getElementById('split-divider').style.display='block';
+    document.getElementById('label-p1').style.display='block';
+    document.getElementById('label-p2').style.display='block';
+    document.getElementById('hud-p2').style.display='block';
+    document.getElementById('gold-p2').style.display='block';
+    document.getElementById('level-p2').style.display='block';
+    document.getElementById('action-p2').style.display='flex';
+    document.getElementById('coop-banner').style.display='block';
+    // Fix camera aspect for half-width
+    camera.aspect=(innerWidth/2)/innerHeight; camera.updateProjectionMatrix();
+    camera2.aspect=(innerWidth/2)/innerHeight; camera2.updateProjectionMatrix();
+    // Add P2 dragon to scene
+    scene.add(dragonGroup2);
+    buildDragon2(); updateUI2();
+  }
+  // Init game
+  renderer.setClearColor(REALMS[0].sky);
+  scene.fog=new THREE.FogExp2(REALMS[0].fog[0],REALMS[0].fog[1]);
+  buildDragon();
+  buildRealmEnvironment(0);
+  spawnPlants(22);
+  spawnZombies(5);
+  animate();
+  updateUI();
+  setTimeout(()=>{
+    if(coop)
+      showMessage('🐉🐉','Co-op Mode!','Both dragons share the same world! P1: WASD + Space/Q. P2: Arrow keys + Enter/slash. Work together to defeat bosses and werewolves!');
+    else
+      showMessage('🐲','Welcome to the Realms of Magic','You are a baby dragon in the Forbidden Forest! Walk over plants to eat and grow. 🔥 Fire breath and 🔮 Magic spells attack enemies. In 🏰 Hogwarts Grounds, beware the werewolves!');
+  },600);
+}
+
+// ════════════════════════════════════════
+//  CONTROLS
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+//  CONTROLS — single unified keyboard handler
+// ════════════════════════════════════════
+
+// P1 moves with WASD + touch D-pad only.
+// P2 moves with Arrow keys only.
+// Arrow keys are NEVER written into G.keys.
+
+document.addEventListener('keydown', e => {
+  // ── Block arrow keys from P1's key store ──
+  const isArrow = e.key==='ArrowUp'||e.key==='ArrowDown'||e.key==='ArrowLeft'||e.key==='ArrowRight';
+  if(!isArrow) G.keys[e.key] = true;
+
+  switch(e.key) {
+    // P1 actions
+    case ' ':   e.preventDefault(); shootFire(); break;
+    case 'q': case 'Q':
+      if(!e.repeat){ spellHeld=true; shootSpell(); } break;
+
+    // P2 actions
+    case 'Enter': e.preventDefault(); shootFire2(); break;
+    case '/': case '?':
+      if(!e.repeat){ spell2Held=true; shootSpell2(); } break;
+
+    // P2 movement
+    case 'ArrowUp':    e.preventDefault(); G2.move.up=true;    break;
+    case 'ArrowDown':  e.preventDefault(); G2.move.down=true;  break;
+    case 'ArrowLeft':  e.preventDefault(); G2.move.left=true;  break;
+    case 'ArrowRight': e.preventDefault(); G2.move.right=true; break;
+  }
+});
+
+document.addEventListener('keyup', e => {
+  G.keys[e.key] = false;
+  switch(e.key) {
+    case 'q': case 'Q':       spellHeld=false;  break;
+    case '/': case '?':       spell2Held=false; break;
+    case 'ArrowUp':    G2.move.up=false;    break;
+    case 'ArrowDown':  G2.move.down=false;  break;
+    case 'ArrowLeft':  G2.move.left=false;  break;
+    case 'ArrowRight': G2.move.right=false; break;
+  }
+});
+
+function dpBtn(id,prop){
+  const el=document.getElementById(id);
+  const on=()=>{ G.move[prop]=true; el.classList.add('pressed'); };
+  const off=()=>{ G.move[prop]=false; el.classList.remove('pressed'); };
+  el.addEventListener('touchstart',e=>{ e.preventDefault(); on(); },{passive:false});
+  el.addEventListener('touchend',e=>{ e.preventDefault(); off(); },{passive:false});
+  el.addEventListener('mousedown',on); el.addEventListener('mouseup',off);
+}
+dpBtn('dp-up','up'); dpBtn('dp-down','down'); dpBtn('dp-left','left'); dpBtn('dp-right','right');
+
+const fireEl=document.getElementById('btn-fire');
+fireEl.addEventListener('click',shootFire);
+fireEl.addEventListener('touchstart',e=>{ e.preventDefault(); shootFire(); },{passive:false});
+
+// ── Spell hold-to-rapid-fire ──
+// P1 spell held state
+let spellHeld = false;
+let spellBurstCd = 0;
+const SPELL_BURST_INTERVAL = 10; // frames between burst shots
+const SPELL_BURST_COST = 5;      // magic per burst shot (cheaper than single)
+const SPELL_BURST_DMG_MULT = 0.4; // each burst shot does 40% of normal damage
+
+function shootSpellBurst() {
+  // Rapid-fire version: lower cost, lower damage per shot
+  if(G.magic < SPELL_BURST_COST || G.gameOver) return;
+  G.magic = Math.max(0, G.magic - SPELL_BURST_COST);
+  const colors=[0x00ffcc,0xffd700,0x9b59b6,0xff0044];
+  const sc=new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.22), // smaller projectile
+    new THREE.MeshBasicMaterial({color:colors[G.currentRealm]})
+  );
+  const neckWorldQuat2 = new THREE.Quaternion();
+  const snoutWorld2 = new THREE.Vector3();
+  if(neckGroup){
+    neckGroup.getWorldQuaternion(neckWorldQuat2);
+    neckGroup.getWorldPosition(snoutWorld2);
+    snoutWorld2.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWorldQuat2), 1.2);
+  } else {
+    snoutWorld2.copy(dragonGroup.position); snoutWorld2.y+=1.2;
+    dragonGroup.getWorldQuaternion(neckWorldQuat2);
+  }
+  // Slight random spread for machine-gun feel
+  const spread = 0.06;
+  const dir = new THREE.Vector3(
+    (Math.random()-0.5)*spread,
+    (Math.random()-0.5)*spread*0.5,
+    1
+  ).applyQuaternion(neckWorldQuat2).normalize();
+  sc.position.copy(snoutWorld2);
+  const dmg = Math.ceil((25+G.level*5+G.currentRealm*10) * SPELL_BURST_DMG_MULT);
+  scene.add(sc);
+  spells.push({mesh:sc, dir, life:80, dmg, spin:0});
+  updateUI();
+}
+
+const spellEl=document.getElementById('btn-spell');
+// Touch: set held on touchstart, clear on touchend
+spellEl.addEventListener('touchstart', e=>{ e.preventDefault(); spellHeld=true; shootSpell(); }, {passive:false});
+spellEl.addEventListener('touchend',   e=>{ e.preventDefault(); spellHeld=false; }, {passive:false});
+spellEl.addEventListener('touchcancel',e=>{ spellHeld=false; });
+// Mouse: hold to rapid-fire
+spellEl.addEventListener('mousedown', ()=>{ spellHeld=true; shootSpell(); });
+spellEl.addEventListener('mouseup',   ()=>{ spellHeld=false; });
+spellEl.addEventListener('mouseleave',()=>{ spellHeld=false; });
+
+// ── P2 Spell hold-to-rapid-fire ──
+let spell2Held = false;
+let spell2BurstCd = 0;
+
+function shootSpell2Burst() {
+  if(G2.magic < SPELL_BURST_COST || G2.gameOver) return;
+  G2.magic = Math.max(0, G2.magic - SPELL_BURST_COST);
+  const sc=new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.22),
+    new THREE.MeshBasicMaterial({color:0x00ffff})
+  );
+  const neckWQ2s = new THREE.Quaternion();
+  const snoutW2s = new THREE.Vector3();
+  if(neckGroup2){
+    neckGroup2.getWorldQuaternion(neckWQ2s);
+    neckGroup2.getWorldPosition(snoutW2s);
+    snoutW2s.addScaledVector(new THREE.Vector3(0,0,1).applyQuaternion(neckWQ2s), 1.2);
+  } else {
+    snoutW2s.copy(dragonGroup2.position); snoutW2s.y+=1.2;
+    dragonGroup2.getWorldQuaternion(neckWQ2s);
+  }
+  const spread = 0.06;
+  const dir = new THREE.Vector3(
+    (Math.random()-0.5)*spread,
+    (Math.random()-0.5)*spread*0.5,
+    1
+  ).applyQuaternion(neckWQ2s).normalize();
+  sc.position.copy(snoutW2s);
+  const dmg = Math.ceil((25+G2.level*5) * SPELL_BURST_DMG_MULT);
+  scene.add(sc);
+  spells2.push({mesh:sc, dir, life:80, dmg, spin:0});
+  updateUI2();
+}
+
+// P2 touch buttons
+const p2FireEl=document.getElementById('p2-fire');
+p2FireEl.addEventListener('click',shootFire2);
+p2FireEl.addEventListener('touchstart',e=>{ e.preventDefault(); shootFire2(); },{passive:false});
+const p2SpellEl=document.getElementById('p2-spell');
+p2SpellEl.addEventListener('touchstart', e=>{ e.preventDefault(); spell2Held=true; shootSpell2(); }, {passive:false});
+p2SpellEl.addEventListener('touchend',   e=>{ e.preventDefault(); spell2Held=false; }, {passive:false});
+p2SpellEl.addEventListener('touchcancel',e=>{ spell2Held=false; });
+p2SpellEl.addEventListener('mousedown', ()=>{ spell2Held=true; shootSpell2(); });
+p2SpellEl.addEventListener('mouseup',   ()=>{ spell2Held=false; });
+p2SpellEl.addEventListener('mouseleave',()=>{ spell2Held=false; });
+
+window.addEventListener('blur', () => {
+  // Clear ALL held keys and move states when window loses focus
+  // This prevents the dragon getting "stuck" moving after alt-tab etc.
+  Object.keys(G.keys).forEach(k => G.keys[k] = false);
+  G.move.up = G.move.down = G.move.left = G.move.right = false;
+  G2.move.up = G2.move.down = G2.move.left = G2.move.right = false;
+  spellHeld = false; spell2Held = false;
+});
+
+window.addEventListener('resize',()=>{
+  if(COOP_MODE){
+    camera.aspect=(innerWidth/2)/innerHeight; camera.updateProjectionMatrix();
+    camera2.aspect=(innerWidth/2)/innerHeight; camera2.updateProjectionMatrix();
+  }
+});
+
+// ════════════════════════════════════════
+//  GAME LOOP
+// ════════════════════════════════════════
+function animate(){
+  requestAnimationFrame(animate);
+  G.frameCount++;
+  if(!G.gameOver && !G.cutscenePlaying){
+    updateDragon();
+    if(COOP_MODE){
+      updateDragon2();
+      updateProjectiles2();
+      updateStatsP2();
+      updateBossMulti();
+      updateWerewolvesMulti();
+    } else {
+      updateBoss();
+      updateWerewolves();
+    }
+    updateProjectiles();
+    updateParticles();
+    updateStats();
+    updateZombies();
+    // Spell hold burst ticks
+    if(spellHeld){
+      spellBurstCd--;
+      if(spellBurstCd<=0){ spellBurstCd=SPELL_BURST_INTERVAL; shootSpellBurst(); }
+    } else { spellBurstCd=0; }
+    if(spell2Held){
+      spell2BurstCd--;
+      if(spell2BurstCd<=0){ spell2BurstCd=SPELL_BURST_INTERVAL; shootSpell2Burst(); }
+    } else { spell2BurstCd=0; }
+    checkBossSpawn();
+    if(G.frameCount%8===0){ checkNearPlants(); if(COOP_MODE) checkNearPlantsP2(); }
+  }
+  if(G.frameCount%4===0) drawMinimap();
+  stars.material.opacity=0.7+Math.sin(G.frameCount*0.02)*0.3;
+  if(COOP_MODE) renderSplitScreen();
+  else renderer.render(scene,camera);
+}
+
+// ════════════════════════════════════════
+//  INIT — show mode select first
+// ════════════════════════════════════════
+initModeSelect();
+</script>
+</body>
+</html>
